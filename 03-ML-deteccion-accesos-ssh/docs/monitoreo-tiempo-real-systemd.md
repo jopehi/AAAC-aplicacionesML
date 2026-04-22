@@ -29,6 +29,28 @@ Antes de activar monitoreo continuo o servicios `systemd`, conviene validar el b
 python scripts/validate_baseline.py
 ```
 
+## Punto De Inicio De Este Documento
+
+Este archivo no es la guia principal del proyecto.
+
+Debes llegar aqui solo cuando ya hiciste lo siguiente en `README.md`:
+
+1. preparar Ubuntu 24
+2. construir el baseline por lotes
+3. validar el baseline con `python scripts/validate_baseline.py`
+
+En otras palabras:
+
+- `README.md` = implementacion base y estable
+- este documento = ampliacion operativa para tiempo real
+
+Orden recomendado dentro de este documento:
+
+1. leer `Meta De Esta Version`
+2. revisar `Arquitectura Propuesta`
+3. usar `Estado Actual De Implementacion`
+4. aplicar `Despliegue con systemd`
+
 ## Contexto
 
 En Ubuntu 24, `systemd` y `journald` son piezas centrales del sistema. Aunque `auth.log` puede seguir existiendo, una estrategia moderna de observabilidad debe contemplar:
@@ -107,6 +129,10 @@ Tecnicas recomendadas:
 - `deque` por IP y por usuario
 - diccionarios en memoria
 - limpieza por expiracion de ventana
+
+Nota breve:
+
+- `deque` es una estructura de Python tipo cola doble (`double-ended queue`) que permite agregar eventos nuevos al final y eliminar rapido los mas antiguos del inicio, algo util para mantener ventanas de tiempo como 1, 5 o 15 minutos sin recalcular todo el historial
 
 Beneficio:
 

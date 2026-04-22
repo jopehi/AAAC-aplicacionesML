@@ -34,6 +34,21 @@ Regla operativa recomendada:
 - despues activar la capa avanzada
 - no mezclar pruebas del monitor continuo con los artefactos principales si no hace falta
 
+## Desde Donde Empezar
+
+Para evitar confusion, este proyecto se debe leer e implementar en este orden:
+
+1. este `README.md`
+2. la seccion `Ruta De Implementacion Recomendada`
+3. la seccion `Flujo Baseline Paso A Paso`
+4. la seccion `Validacion Del Baseline`
+5. solo despues el documento [Monitoreo en tiempo real con systemd](docs/monitoreo-tiempo-real-systemd.md)
+
+Regla simple:
+
+- si todavia no tienes `models/scored_events.csv`, aun estas en la version inicial
+- si ya validaste el baseline y quieres monitoreo continuo, entonces pasas al documento avanzado
+
 ## Objetivo
 
 Construir una aplicacion reproducible con machine learning para detectar intentos anormales de acceso por SSH, usando datos de autenticacion del sistema, variables derivadas de comportamiento y un flujo de entrenamiento e inferencia que cualquier persona pueda replicar en su propio laboratorio.
@@ -217,7 +232,62 @@ Para considerar que la solucion puede arrancar en Ubuntu 24, deberian existir al
 - un modelo guardado en `models/`
 - una interfaz o script de inferencia
 
-### Flujo Minimo De Puesta En Marcha
+## Ruta De Implementacion Recomendada
+
+Esta es la ruta oficial para construir el proyecto sin mezclar etapas:
+
+### Fase 1: Preparar El Servidor
+
+Objetivo:
+
+- dejar Ubuntu 24 listo con Python, SSH y permisos de lectura sobre logs
+
+Resultado esperado:
+
+- el usuario `admon` puede entrar al proyecto, activar `.venv` y leer `/var/log/auth.log`
+
+### Fase 2: Construir La Version Inicial
+
+Objetivo:
+
+- parsear logs
+- generar features
+- entrenar el baseline
+- levantar la app en modo CSV
+
+Resultado esperado:
+
+- existen `data/processed/ssh_events.csv`, `data/processed/ssh_features.csv`, `models/ssh_anomaly_model.joblib`, `models/model_metadata.json` y `models/scored_events.csv`
+
+### Fase 3: Validar La Version Inicial
+
+Objetivo:
+
+- confirmar que la base estable sigue funcionando antes de tocar la capa avanzada
+
+Resultado esperado:
+
+- `python scripts/validate_baseline.py` termina en estado `ok`
+
+### Fase 4: Activar La Version Avanzada
+
+Objetivo:
+
+- pasar a monitoreo continuo con SQLite y `systemd`
+
+Resultado esperado:
+
+- existe `data/processed/ssh_monitor.db`
+- la app muestra eventos y alertas desde SQLite
+
+Importante:
+
+- las fases 1 a 3 ocurren en este `README.md`
+- la fase 4 se desarrolla en [Monitoreo en tiempo real con systemd](docs/monitoreo-tiempo-real-systemd.md)
+
+## Flujo Baseline Paso A Paso
+
+Este bloque corresponde solo a la version inicial.
 
 #### Paso 1: Entrar al proyecto
 
@@ -431,41 +501,6 @@ Luego abrir en navegador:
 
 - `http://IP_DEL_SERVIDOR:8501`
 
-#### Paso 8: Activar la version avanzada con systemd
-
-Archivos ya incluidos:
-
-- `deploy/systemd/ssh-ml-monitor.service`
-- `deploy/systemd/ssh-ml-retrain.service`
-- `deploy/systemd/ssh-ml-retrain.timer`
-
-Instalacion sugerida en Ubuntu 24:
-
-```bash
-sudo cp deploy/systemd/ssh-ml-monitor.service /etc/systemd/system/
-sudo cp deploy/systemd/ssh-ml-retrain.service /etc/systemd/system/
-sudo cp deploy/systemd/ssh-ml-retrain.timer /etc/systemd/system/
-
-sudo systemctl daemon-reload
-sudo systemctl enable --now ssh-ml-monitor.service
-sudo systemctl enable --now ssh-ml-retrain.timer
-```
-
-Validaciones utiles:
-
-```bash
-sudo systemctl status ssh-ml-monitor.service
-sudo systemctl status ssh-ml-retrain.timer
-journalctl -u ssh-ml-monitor.service -n 50 --no-pager
-journalctl -u ssh-ml-retrain.service -n 50 --no-pager
-```
-
-Que hace cada componente:
-
-- `ssh-ml-monitor.service`: sigue eventos nuevos desde `journald`, los parsea, calcula features incrementales y guarda eventos y alertas en `data/processed/ssh_monitor.db`
-- `ssh-ml-retrain.service`: reentrena el baseline a partir de `/var/log/auth.log`
-- `ssh-ml-retrain.timer`: ejecuta el reentrenamiento en la periodicidad definida
-
 ### Puertos Y Firewall
 
 Si la app se expone en red local para laboratorio:
@@ -505,7 +540,7 @@ Antes de considerar el despliegue listo, verificar:
 - entrenamiento produce modelo en `models/`
 - interfaz responde en el puerto configurado
 
-## Arquitectura Propuesta
+## Arquitectura De Referencia
 
 ### 1. Capa De Ingesta
 
@@ -627,7 +662,13 @@ Pantallas sugeridas:
 - detalle de una alerta con su contexto
 - historial de riesgo por IP o usuario
 
+## Explicacion Conceptual Del Proyecto
+
+Esta seccion ya no describe el orden operativo de implementacion. Su funcion es explicar el diseno tecnico del sistema.
+
 ## Flujo De Construccion Reproducible
+
+Esta es una vista conceptual de como se penso el proyecto. Si vas a implementarlo, sigue primero `Ruta De Implementacion Recomendada` y `Flujo Baseline Paso A Paso`.
 
 ### Paso 1: Preparar El Entorno
 
@@ -951,7 +992,23 @@ Este chequeo:
 - no altera `models/model_metadata.json`
 - deja un resumen en `models/baseline_validation_summary.json`
 
+## Paso Siguiente: Version Avanzada
+
+Cuando ya hayas completado y validado el baseline, continua aqui:
+
+- [Monitoreo en tiempo real con systemd](docs/monitoreo-tiempo-real-systemd.md)
+
+Ese documento cubre:
+
+- `run_realtime_monitor.py`
+- SQLite como persistencia operativa
+- seguimiento continuo de `auth.log` o `journald`
+- reentrenamiento con `retrain_model.py`
+- despliegue con `systemd`
+
 ## Ejecucion Avanzada
+
+Resumen corto. El detalle formal vive en el documento avanzado.
 
 ### Replay y seguimiento continuo
 
