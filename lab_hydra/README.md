@@ -1,3 +1,14 @@
+# AVISO IMPORTANTE
+
+Este laboratorio es exclusivamente educativo y debe ejecutarse solo en entornos controlados, aislados y con autorizacion explicita del instructor o del propietario del sistema.
+
+No utilices este material, diccionarios, comandos ni procedimientos contra sistemas, redes o servicios de terceros.
+
+El objetivo es estudiar patrones de ataque, evidencia, deteccion y defensa dentro de un entorno de practica autorizado.
+
+> Uso exclusivo en laboratorio autorizado.
+
+---
 # 🔬 Lab Hydra — Ataque Simulado SSH (Fuerza Bruta)
 
 > **⚠️ ADVERTENCIA LEGAL Y ÉTICA**
@@ -371,3 +382,4 @@ sudo tail -f /var/log/syslog
 ---
 
 *Generado para fines educativos y de auditoría autorizada.*
+
