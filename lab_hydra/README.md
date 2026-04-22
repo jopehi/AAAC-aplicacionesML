@@ -381,5 +381,4 @@ sudo tail -f /var/log/syslog
 
 ---
 
-*Generado para fines educativos y de auditoría autorizada.*
 
