@@ -141,7 +141,7 @@ python -m pip install --upgrade pip wheel setuptools
 
 ### Dependencias Python Recomendadas
 
-Crear un `requirements.txt` con una base como esta:
+El proyecto ya incluye un archivo `requirements.txt` con las dependencias base del pipeline:
 
 ```text
 pandas
@@ -183,12 +183,9 @@ Para considerar que la solucion puede arrancar en Ubuntu 24, deberian existir al
 
 ### Flujo Minimo De Puesta En Marcha
 
-#### Paso 1: Copiar o clonar el repositorio
+#### Paso 1: Entrar al proyecto
 
 ```bash
-sudo cp -r /ruta/de/origen/03-ML-deteccion-accesos-ssh /03-ML-deteccion-accesos-ssh
-sudo chown -R admon:admon /03-ML-deteccion-accesos-ssh
-
 cd /03-ML-deteccion-accesos-ssh
 ```
 
