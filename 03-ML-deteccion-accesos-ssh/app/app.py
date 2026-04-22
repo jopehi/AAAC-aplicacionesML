@@ -407,7 +407,8 @@ def render_model_context(thresholds: dict, live_events: int) -> None:
                 {"parametro": "risk_score_threshold", "valor": thresholds["risk_score_threshold"]},
             ]
         )
-        st.dataframe(params, use_container_width=True, hide_index=True)
+        params["valor"] = params["valor"].astype(str)
+        st.dataframe(params, width="stretch", hide_index=True)
 
         st.subheader("Features usadas por el modelo")
         feature_columns = metadata.get("feature_columns", [])
@@ -438,7 +439,8 @@ def render_model_context(thresholds: dict, live_events: int) -> None:
                     {"dato": "eventos visibles ahora", "valor": live_events},
                 ]
             )
-            st.dataframe(retrain_rows, use_container_width=True, hide_index=True)
+            retrain_rows["valor"] = retrain_rows["valor"].astype(str)
+            st.dataframe(retrain_rows, width="stretch", hide_index=True)
         else:
             st.info("No hay resumen de reentrenamiento disponible todavia.")
 
@@ -566,7 +568,7 @@ def render_response_controls(candidates: pd.DataFrame, response_cfg: dict) -> No
     response_actions = load_response_actions()
     if not response_actions.empty:
         st.subheader("Historial de acciones")
-        st.dataframe(response_actions, use_container_width=True)
+        st.dataframe(response_actions, width="stretch")
 
 
 def build_ip_summary(alerts: pd.DataFrame) -> pd.DataFrame:
@@ -662,7 +664,7 @@ def render_sqlite_mode(thresholds: dict, response_cfg: dict) -> None:
     st.subheader("IPs con mayor prioridad operativa")
     ip_summary = build_ip_summary(alerts)
     if not ip_summary.empty:
-        st.dataframe(ip_summary.head(15), use_container_width=True)
+        st.dataframe(ip_summary.head(15), width="stretch")
     else:
         st.info("Todavia no hay alertas persistidas.")
 
@@ -681,7 +683,7 @@ def render_sqlite_mode(thresholds: dict, response_cfg: dict) -> None:
                     "reason_summary",
                 ]
             ].sort_values(["created_at", "risk_score"], ascending=[False, False]),
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.info("Todavia no hay registros que cumplan criterio de posible bloqueo.")
@@ -706,13 +708,13 @@ def render_sqlite_mode(thresholds: dict, response_cfg: dict) -> None:
                     "reason_summary",
                 ]
             ],
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.info("No hay alertas para los filtros seleccionados.")
 
     st.subheader("Eventos recientes")
-    st.dataframe(events.sort_values("timestamp", ascending=False).head(100), use_container_width=True)
+    st.dataframe(events.sort_values("timestamp", ascending=False).head(100), width="stretch")
     st.stop()
 
 
@@ -769,7 +771,7 @@ def render_baseline_mode(thresholds: dict) -> None:
                     "rule_hits_display",
                 ]
             ].sort_values(["timestamp", "risk_score"], ascending=[False, False]),
-            use_container_width=True,
+            width="stretch",
         )
     else:
         st.info("Todavia no hay registros que cumplan criterio de posible bloqueo en el baseline.")
@@ -786,7 +788,7 @@ def render_baseline_mode(thresholds: dict) -> None:
         .reset_index()
         .sort_values(["candidate_block_count", "high_risk_count", "max_risk_score"], ascending=[False, False, False])
     )
-    st.dataframe(ip_summary.head(15), use_container_width=True)
+    st.dataframe(ip_summary.head(15), width="stretch")
 
     st.subheader("Eventos analizados")
     st.dataframe(
@@ -806,7 +808,7 @@ def render_baseline_mode(thresholds: dict) -> None:
                 "raw_message",
             ]
         ].sort_values(["severity", "timestamp"], ascending=[False, False]),
-        use_container_width=True,
+        width="stretch",
     )
 
 
