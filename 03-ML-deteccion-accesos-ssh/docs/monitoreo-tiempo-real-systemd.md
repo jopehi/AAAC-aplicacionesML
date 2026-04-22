@@ -878,6 +878,56 @@ Y agregar:
 admon ALL=(root) NOPASSWD: /usr/sbin/ufw
 ```
 
+Este paso es fundamental.
+
+Si no haces esto:
+
+- la interfaz intentara ejecutar `sudo ufw ...`
+- el sistema pedira contraseña
+- la app no podra responder a ese prompt interactivo
+- el bloqueo o desbloqueo fallara
+
+### Verificar la ruta real de ufw
+
+Antes de guardar la regla en `sudoers`, confirma la ruta del binario:
+
+```bash
+which ufw
+```
+
+Si devuelve:
+
+```bash
+/usr/sbin/ufw
+```
+
+entonces la linea anterior es correcta.
+
+Si devuelve otra ruta, debes usar esa ruta exacta en `sudoers`.
+
+### Aplicar el cambio correctamente
+
+Despues de crear o modificar `/etc/sudoers.d/ssh-ml-ufw`:
+
+1. guarda el archivo desde `visudo`
+2. reinicia el monitor si usas el servicio
+3. vuelve a abrir la app si la ejecutas manualmente
+
+Comandos utiles:
+
+```bash
+sudo systemctl restart ssh-ml-monitor.service
+sudo systemctl status ssh-ml-monitor.service
+```
+
+Si lanzas la app manualmente:
+
+```bash
+cd /03-ML-deteccion-accesos-ssh
+source .venv/bin/activate
+streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
+```
+
 ### Uso desde la interfaz
 
 Cuando la app esta en modo SQLite y hay registros `Candidato a bloqueo`, aparece el panel `Respuesta operativa`.
