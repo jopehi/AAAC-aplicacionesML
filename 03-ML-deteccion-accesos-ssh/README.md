@@ -1120,6 +1120,45 @@ Que hace este script:
 - comprueba que el baseline sigue funcionando
 - no pisa el modelo principal
 
+## Manejo De Zona Horaria
+
+La zona horaria visible del proyecto se define en:
+
+- `config/settings.yaml`
+
+Ejemplo:
+
+```yaml
+project:
+  timezone: America/Bogota
+```
+
+Archivos y funciones involucradas:
+
+- `src/ssh_pipeline.py`
+  - `parse_timestamp(value, year)`
+  - usa `pandas` para interpretar timestamps del log
+  - ahi comienza el tratamiento temporal de los eventos
+
+- `app/app.py`
+  - `load_project_timezone()`
+  - `to_display_timezone(series, timezone_name)`
+  - `render_sqlite_mode(...)`
+  - `render_baseline_mode(...)`
+  - `render_header(...)`
+
+Librerias usadas:
+
+- `pandas`
+- `yaml`
+- `streamlit`
+
+Resumen practico:
+
+- `ssh_pipeline.py` parsea la fecha del log
+- `app.py` convierte las fechas a la zona configurada para mostrarlas en pantalla
+- `settings.yaml` define la zona horaria del laboratorio
+
 ## Paso Siguiente: Version Avanzada
 
 Cuando ya hayas completado y validado el baseline, continua aqui:
