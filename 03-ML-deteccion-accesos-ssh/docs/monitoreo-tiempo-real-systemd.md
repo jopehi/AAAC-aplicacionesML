@@ -896,3 +896,27 @@ Toda accion queda registrada en `response_actions`.
 - usar primero solo `Registrar revision`
 - despues habilitar bloqueo manual desde la interfaz
 - dejar `auto_block_enabled: true` solo cuando ya conozcas bien el comportamiento del laboratorio
+
+### Importante: aplicar cambios de configuracion
+
+Despues de modificar `config/settings.yaml`, el servicio no toma los cambios por si solo.
+
+Debes reiniciar el monitor:
+
+```bash
+sudo systemctl restart ssh-ml-monitor.service
+```
+
+Luego verifica:
+
+```bash
+sudo systemctl status ssh-ml-monitor.service
+journalctl -u ssh-ml-monitor.service -n 50 --no-pager
+```
+
+Si ademas cambiaste archivos `.service` o `.timer`, entonces primero ejecuta:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ssh-ml-monitor.service
+```
