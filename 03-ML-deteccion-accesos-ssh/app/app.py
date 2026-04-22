@@ -13,6 +13,8 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 SCORED_PATH = BASE_DIR / "models" / "scored_events.csv"
 SQLITE_PATH = BASE_DIR / "data" / "processed" / "ssh_monitor.db"
 SETTINGS_PATH = BASE_DIR / "config" / "settings.yaml"
+MODEL_METADATA_PATH = BASE_DIR / "models" / "model_metadata.json"
+RETRAIN_SUMMARY_PATH = BASE_DIR / "models" / "retrain_summary.json"
 
 
 def load_thresholds() -> dict:
@@ -107,6 +109,13 @@ def inject_styles() -> None:
             margin: 0;
             color: #ffe0e0;
         }
+        .info-card {
+            border-radius: 18px;
+            padding: 1rem 1rem 0.85rem 1rem;
+            background: linear-gradient(180deg, #f7fbff 0%, #edf4fb 100%);
+            border: 1px solid rgba(18, 45, 78, 0.10);
+            margin-bottom: 1rem;
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -138,6 +147,13 @@ def render_header(mode: str, thresholds: dict) -> None:
 def parse_rule_hits(value: str) -> list[str]:
     if not value:
         return []
+
+
+def load_json_file(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as handle:
+        return json.load(handle)
     try:
         parsed = json.loads(value)
         return parsed if isinstance(parsed, list) else []
@@ -258,6 +274,84 @@ def render_metrics(total_events: int, failures: int, successes: int, alerts_coun
     col5.metric("Candidatos bloqueo", candidate_count)
 
 
+def render_model_context(thresholds: dict, live_events: int) -> None:
+    metadata = load_json_file(MODEL_METADATA_PATH)
+    retrain_summary = load_json_file(RETRAIN_SUMMARY_PATH)
+
+    with st.expander("Modelo, tecnica y contexto de evaluacion", expanded=False):
+        st.markdown(
+            """
+            <div class="info-card">
+                <strong>Tecnica principal:</strong> Isolation Forest como baseline de deteccion de anomalias.<br>
+                <strong>Enfoque operativo:</strong> reglas hibridas + score del modelo.<br>
+                <strong>Uso esperado:</strong> priorizar revision y posible bloqueo por abuso, no confirmar un ataque por si solo.
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        left, middle, right = st.columns(3)
+        left.metric("Modelo", metadata.get("model_type", "No disponible"))
+        middle.metric("Filas entrenamiento", int(metadata.get("training_rows", 0) or 0))
+        right.metric("High risk entrenamiento", int(metadata.get("high_risk_count", 0) or 0))
+
+        st.subheader("Parametros del modelo")
+        params = pd.DataFrame(
+            [
+                {"parametro": "contamination", "valor": metadata.get("contamination", "n/d")},
+                {"parametro": "random_state", "valor": metadata.get("random_state", "n/d")},
+                {"parametro": "scikit-learn", "valor": metadata.get("sklearn_version", "n/d")},
+                {"parametro": "fallos 5m", "valor": thresholds["high_failure_threshold_5m"]},
+                {"parametro": "usuarios distintos/IP 5m", "valor": thresholds["distinct_users_threshold_5m"]},
+                {"parametro": "risk_score_threshold", "valor": thresholds["risk_score_threshold"]},
+            ]
+        )
+        st.dataframe(params, use_container_width=True, hide_index=True)
+
+        st.subheader("Features usadas por el modelo")
+        feature_columns = metadata.get("feature_columns", [])
+        if feature_columns:
+            st.code(", ".join(feature_columns))
+        else:
+            st.info("Todavia no hay metadata de features disponible.")
+
+        st.subheader("Lectura rapida del entrenamiento")
+        if metadata:
+            training_rows = int(metadata.get("training_rows", 0) or 0)
+            high_risk_count = int(metadata.get("high_risk_count", 0) or 0)
+            ratio = round((high_risk_count / training_rows) * 100, 2) if training_rows else 0.0
+            st.write(
+                f"El baseline se entreno con **{training_rows}** registros y marco **{high_risk_count}** "
+                f"como `high_risk` durante ese entrenamiento ({ratio}%)."
+            )
+        else:
+            st.info("No existe metadata del entrenamiento actual.")
+
+        st.subheader("Ultimo reentrenamiento conocido")
+        if retrain_summary:
+            retrain_rows = pd.DataFrame(
+                [
+                    {"dato": "input_log", "valor": retrain_summary.get("input_log", "n/d")},
+                    {"dato": "parsed_events", "valor": retrain_summary.get("parsed_events", "n/d")},
+                    {"dato": "feature_rows", "valor": retrain_summary.get("feature_rows", "n/d")},
+                    {"dato": "eventos visibles ahora", "valor": live_events},
+                ]
+            )
+            st.dataframe(retrain_rows, use_container_width=True, hide_index=True)
+        else:
+            st.info("No hay resumen de reentrenamiento disponible todavia.")
+
+        st.subheader("Como leer este panel")
+        st.markdown(
+            """
+            - `Candidato a bloqueo`: combinacion fuerte de reglas de abuso y/o apoyo del modelo.
+            - `Revisar`: anomalia o riesgo suficiente para analisis manual, pero no bloqueo inmediato.
+            - `Observar`: evento visible sin evidencia suficiente para accion dura.
+            - `risk_score`: medida de rareza operativa; no equivale por si sola a incidente confirmado.
+            """
+        )
+
+
 def build_ip_summary(alerts: pd.DataFrame) -> pd.DataFrame:
     if alerts.empty:
         return pd.DataFrame()
@@ -343,6 +437,7 @@ def render_sqlite_mode(thresholds: dict) -> None:
     failures = int((events["auth_result"] == "failure").sum()) if not events.empty else 0
     successes = int((events["auth_result"] == "success").sum()) if not events.empty else 0
     render_metrics(total_events, failures, successes, len(alerts), len(candidates))
+    render_model_context(thresholds, total_events)
 
     selected_status, selected_ip, selected_user = render_sidebar_filters(alerts)
     filtered_alerts = filter_alerts(alerts, selected_status, selected_ip, selected_user)
@@ -423,6 +518,7 @@ def render_baseline_mode(thresholds: dict) -> None:
     successes = int((frame["auth_result"] == "success").sum())
     high_risk = int((frame["prediction_label"] == "high_risk").sum())
     render_metrics(total_events, failures, successes, high_risk, len(candidates))
+    render_model_context(thresholds, total_events)
 
     st.sidebar.header("Filtros operativos")
     selected_status = st.sidebar.selectbox(
