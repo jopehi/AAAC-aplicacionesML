@@ -246,6 +246,7 @@ En esta carpeta ya quedan incluidos:
 - `scripts/validate_baseline.py`
 - `scripts/run_realtime_monitor.py`
 - `scripts/retrain_model.py`
+- `src/response_actions.py`
 - `deploy/systemd/ssh-ml-monitor.service`
 - `deploy/systemd/ssh-ml-retrain.service`
 - `deploy/systemd/ssh-ml-retrain.timer`
@@ -1129,6 +1130,7 @@ Ese documento cubre:
 
 - `run_realtime_monitor.py`
 - SQLite como persistencia operativa
+- `response_actions` para registrar revisiones y bloqueos
 - seguimiento continuo de `auth.log` o `journald`
 - reentrenamiento con `retrain_model.py`
 - despliegue con `systemd`

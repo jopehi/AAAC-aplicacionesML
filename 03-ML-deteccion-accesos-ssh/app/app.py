@@ -8,6 +8,12 @@ import pandas as pd
 import streamlit as st
 import yaml
 
+from src.response_actions import (
+    classify_response_level,
+    execute_ufw_action,
+    record_response_action,
+    ufw_available,
+)
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 SCORED_PATH = BASE_DIR / "models" / "scored_events.csv"
@@ -34,6 +40,26 @@ def load_thresholds() -> dict:
         "distinct_users_threshold_5m": int(realtime.get("distinct_users_threshold_5m", 4)),
         "successful_after_failures_threshold_5m": int(realtime.get("successful_after_failures_threshold_5m", 5)),
         "risk_score_threshold": float(realtime.get("risk_score_threshold", 0.1)),
+    }
+
+
+def load_response_config() -> dict:
+    if not SETTINGS_PATH.exists():
+        return {
+            "enable_ufw_actions": False,
+            "auto_block_enabled": False,
+            "ufw_port": 22,
+            "sudo_command": "sudo",
+        }
+
+    with SETTINGS_PATH.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+    response_cfg = data.get("response", {})
+    return {
+        "enable_ufw_actions": bool(response_cfg.get("enable_ufw_actions", False)),
+        "auto_block_enabled": bool(response_cfg.get("auto_block_enabled", False)),
+        "ufw_port": int(response_cfg.get("ufw_port", 22)),
+        "sudo_command": str(response_cfg.get("sudo_command", "sudo")),
     }
 
 
@@ -222,18 +248,28 @@ def load_json_file(path: Path) -> dict:
         return json.load(handle)
 
 
+def ensure_response_actions_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS response_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            source_ip TEXT NOT NULL,
+            action_type TEXT NOT NULL,
+            trigger_source TEXT NOT NULL,
+            action_status TEXT NOT NULL,
+            note TEXT,
+            command_text TEXT,
+            command_stdout TEXT,
+            command_stderr TEXT
+        )
+        """
+    )
+    conn.commit()
+
+
 def classify_block_status(rule_hits: list[str], prediction_label: str) -> str:
-    high_abuse_hits = {"high_failures_5m", "many_users_per_ip_5m", "success_after_failures"}
-    hits = set(rule_hits)
-    if len(hits & high_abuse_hits) >= 2:
-        return "candidate_block"
-    if "ml_high_risk" in hits and len(hits & high_abuse_hits) >= 1:
-        return "candidate_block"
-    if "risk_score_threshold" in hits or "ml_high_risk" in hits:
-        return "review"
-    if prediction_label == "high_risk":
-        return "review"
-    return "observe"
+    return classify_response_level(rule_hits, prediction_label)
 
 
 def status_label(status: str) -> str:
@@ -413,6 +449,122 @@ def render_model_context(thresholds: dict, live_events: int) -> None:
         )
 
 
+def execute_response_action(
+    source_ip: str,
+    action_type: str,
+    note: str,
+    response_cfg: dict,
+) -> tuple[bool, str]:
+    conn = sqlite3.connect(SQLITE_PATH)
+    try:
+        ensure_response_actions_table(conn)
+        if action_type == "review":
+            record_response_action(
+                conn,
+                created_at=pd.Timestamp.utcnow().isoformat(),
+                source_ip=source_ip,
+                action_type="review",
+                trigger_source="interface",
+                action_status="logged",
+                note=note or "Revision manual registrada desde la interfaz.",
+            )
+            return True, "Revision registrada."
+
+        if not response_cfg["enable_ufw_actions"]:
+            return False, "La integracion con UFW esta deshabilitada en config/settings.yaml."
+
+        if not ufw_available():
+            return False, "UFW no esta disponible en el sistema."
+
+        result = execute_ufw_action(
+            action_type,
+            source_ip=source_ip,
+            port=response_cfg["ufw_port"],
+            sudo_command=response_cfg["sudo_command"],
+        )
+        record_response_action(
+            conn,
+            created_at=pd.Timestamp.utcnow().isoformat(),
+            source_ip=source_ip,
+            action_type=action_type,
+            trigger_source="interface",
+            action_status="success" if result.success else "failed",
+            note=note or result.note,
+            command_text=result.command_text,
+            command_stdout=result.stdout,
+            command_stderr=result.stderr,
+        )
+        message = result.note
+        if result.stderr:
+            message = f"{message} STDERR: {result.stderr}"
+        return result.success, message
+    finally:
+        conn.close()
+
+
+def load_response_actions() -> pd.DataFrame:
+    if not SQLITE_PATH.exists():
+        return pd.DataFrame()
+    conn = sqlite3.connect(SQLITE_PATH)
+    try:
+        ensure_response_actions_table(conn)
+        return pd.read_sql_query(
+            """
+            SELECT created_at, source_ip, action_type, trigger_source, action_status, note, command_text
+            FROM response_actions
+            ORDER BY id DESC
+            LIMIT 100
+            """,
+            conn,
+            parse_dates=["created_at"],
+        )
+    finally:
+        conn.close()
+
+
+def render_response_controls(candidates: pd.DataFrame, response_cfg: dict) -> None:
+    st.subheader("Respuesta operativa")
+    st.caption(
+        "Puedes registrar revision o ejecutar bloqueo/desbloqueo con UFW. "
+        "La ejecucion real requiere que `ufw` exista y que el usuario del proceso tenga permisos adecuados."
+    )
+    if candidates.empty:
+        st.info("No hay IPs candidatas para accion operativa en este momento.")
+        return
+
+    status_bits = []
+    status_bits.append("UFW habilitado" if response_cfg["enable_ufw_actions"] else "UFW deshabilitado")
+    status_bits.append("auto_block ON" if response_cfg["auto_block_enabled"] else "auto_block OFF")
+    status_bits.append("ufw encontrado" if ufw_available() else "ufw no disponible")
+    st.write(" | ".join(status_bits))
+
+    candidate_ips = sorted(candidates["source_ip"].dropna().astype(str).unique().tolist())
+    with st.form("response_form"):
+        selected_ip = st.selectbox("IP objetivo", candidate_ips)
+        action_type = st.selectbox(
+            "Accion",
+            ["review", "block", "unblock"],
+            format_func=lambda value: {
+                "review": "Registrar revision",
+                "block": "Bloquear en UFW",
+                "unblock": "Desbloquear en UFW",
+            }[value],
+        )
+        note = st.text_input("Nota operativa", value="")
+        submitted = st.form_submit_button("Ejecutar accion")
+        if submitted:
+            ok, message = execute_response_action(selected_ip, action_type, note, response_cfg)
+            if ok:
+                st.success(message)
+            else:
+                st.error(message)
+
+    response_actions = load_response_actions()
+    if not response_actions.empty:
+        st.subheader("Historial de acciones")
+        st.dataframe(response_actions, use_container_width=True)
+
+
 def build_ip_summary(alerts: pd.DataFrame) -> pd.DataFrame:
     if alerts.empty:
         return pd.DataFrame()
@@ -460,7 +612,7 @@ def filter_alerts(alerts: pd.DataFrame, selected_status: str, selected_ip: str, 
     return filtered
 
 
-def render_sqlite_mode(thresholds: dict) -> None:
+def render_sqlite_mode(thresholds: dict, response_cfg: dict) -> None:
     conn = sqlite3.connect(SQLITE_PATH)
     alerts = pd.read_sql_query(
         """
@@ -529,6 +681,8 @@ def render_sqlite_mode(thresholds: dict) -> None:
         )
     else:
         st.info("Todavia no hay registros que cumplan criterio de posible bloqueo.")
+
+    render_response_controls(candidates, response_cfg)
 
     st.subheader("Alertas filtradas")
     if not filtered_alerts.empty:
@@ -655,8 +809,9 @@ def render_baseline_mode(thresholds: dict) -> None:
 st.set_page_config(page_title="SSH Anomaly Detection", layout="wide")
 inject_styles()
 thresholds = load_thresholds()
+response_cfg = load_response_config()
 
 if SQLITE_PATH.exists():
-    render_sqlite_mode(thresholds)
+    render_sqlite_mode(thresholds, response_cfg)
 else:
     render_baseline_mode(thresholds)

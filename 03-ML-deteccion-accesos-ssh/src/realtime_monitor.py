@@ -16,6 +16,13 @@ import numpy as np
 import pandas as pd
 import sklearn
 
+from src.response_actions import (
+    classify_response_level,
+    execute_ufw_action,
+    has_successful_block,
+    record_response_action,
+    ufw_available,
+)
 from src.ssh_pipeline import ParsedEvent, load_settings, parse_log_line, parse_timestamp
 
 
@@ -61,6 +68,22 @@ def init_db(db_path: Path) -> sqlite3.Connection:
             rule_hits TEXT,
             status TEXT NOT NULL DEFAULT 'new',
             raw_message TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS response_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            source_ip TEXT NOT NULL,
+            action_type TEXT NOT NULL,
+            trigger_source TEXT NOT NULL,
+            action_status TEXT NOT NULL,
+            note TEXT,
+            command_text TEXT,
+            command_stdout TEXT,
+            command_stderr TEXT
         )
         """
     )
@@ -220,6 +243,57 @@ def persist_alert(
     conn.commit()
 
 
+def maybe_auto_block(
+    conn: sqlite3.Connection,
+    event: dict,
+    rule_hits: list[str],
+    label: str,
+    settings: dict,
+) -> None:
+    response_cfg = settings.get("response", {})
+    if not response_cfg.get("enable_ufw_actions", False):
+        return
+    if not response_cfg.get("auto_block_enabled", False):
+        return
+    if classify_response_level(rule_hits, label) != "candidate_block":
+        return
+    source_ip = event.get("source_ip", "")
+    if not source_ip or source_ip == "unknown":
+        return
+    if has_successful_block(conn, source_ip):
+        return
+    if not ufw_available():
+        record_response_action(
+            conn,
+            created_at=event["timestamp"].isoformat(),
+            source_ip=source_ip,
+            action_type="block",
+            trigger_source="automatic",
+            action_status="skipped",
+            note="No se encontro ufw en el sistema.",
+        )
+        return
+
+    result = execute_ufw_action(
+        "block",
+        source_ip=source_ip,
+        port=int(response_cfg.get("ufw_port", 22)),
+        sudo_command=str(response_cfg.get("sudo_command", "sudo")),
+    )
+    record_response_action(
+        conn,
+        created_at=event["timestamp"].isoformat(),
+        source_ip=source_ip,
+        action_type="block",
+        trigger_source="automatic",
+        action_status="success" if result.success else "failed",
+        note=result.note,
+        command_text=result.command_text,
+        command_stdout=result.stdout,
+        command_stderr=result.stderr,
+    )
+
+
 def process_line(
     line: str,
     year: int,
@@ -260,6 +334,7 @@ def process_line(
             build_reason_summary(rule_hits, event, feature_row),
             rule_hits,
         )
+        maybe_auto_block(conn, event, rule_hits, label, artifacts.config)
     return True
 
 

@@ -18,3 +18,9 @@ realtime:
   distinct_users_threshold_5m: 4
   successful_after_failures_threshold_5m: 5
   risk_score_threshold: 0.1
+
+response:
+  enable_ufw_actions: false
+  auto_block_enabled: false
+  ufw_port: 22
+  sudo_command: sudo

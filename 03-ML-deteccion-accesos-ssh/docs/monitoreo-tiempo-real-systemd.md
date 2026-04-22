@@ -586,12 +586,12 @@ Es el recomendado:
 
 ## Persistencia De Resultados
 
-Para una version operativa, conviene dejar de depender solo de CSV.
+La version operativa actual ya no depende solo de CSV.
 
-Opciones:
+Estado actual:
 
-- SQLite para laboratorio simple
-- PostgreSQL si el proyecto crece
+- SQLite ya implementado en `data/processed/ssh_monitor.db`
+- PostgreSQL quedaria como evolucion futura si el proyecto crece
 
 Tablas sugeridas:
 
@@ -830,9 +830,69 @@ journalctl -u ssh-ml-retrain.service -n 50 --no-pager
 ## Trabajo Futuro
 
 - monitoreo continuo sobre `journalctl -u ssh -f`
-- almacenamiento en SQLite o PostgreSQL
+- migracion opcional a PostgreSQL si SQLite queda corto
 - modo stream para `app.py`
 - reglas hibridas configurables
 - servicio `systemd` para el monitor
 - timer `systemd` para reentrenamiento
 - integracion controlada con `fail2ban` o `ufw`
+
+## Integracion Basica Con UFW
+
+Ya quedo preparada una base para respuesta operativa:
+
+- tabla `response_actions` en SQLite
+- registro de acciones desde la interfaz
+- soporte para `block` y `unblock` con `ufw`
+- soporte opcional para auto-bloqueo, desactivado por defecto
+
+Configuracion en `config/settings.yaml`:
+
+```yaml
+response:
+  enable_ufw_actions: false
+  auto_block_enabled: false
+  ufw_port: 22
+  sudo_command: sudo
+```
+
+Interpretacion:
+
+- `enable_ufw_actions: true` habilita acciones reales con `ufw`
+- `auto_block_enabled: true` permite que el monitor bloquee automaticamente candidatos claros
+- por defecto ambos vienen en `false` para evitar bloqueos no deseados
+
+### Requisito de permisos
+
+Si quieres ejecutar `ufw` desde la interfaz o desde el servicio, el usuario operativo debe poder invocar `ufw` con `sudo` sin pedir clave.
+
+Ejemplo recomendado en Ubuntu 24:
+
+```bash
+sudo visudo -f /etc/sudoers.d/ssh-ml-ufw
+```
+
+Y agregar:
+
+```text
+admon ALL=(root) NOPASSWD: /usr/sbin/ufw
+```
+
+### Uso desde la interfaz
+
+Cuando la app esta en modo SQLite y hay registros `Candidato a bloqueo`, aparece el panel `Respuesta operativa`.
+
+Desde ahi puedes:
+
+- registrar revision manual
+- bloquear una IP con `ufw`
+- desbloquear una IP con `ufw`
+
+Toda accion queda registrada en `response_actions`.
+
+### Recomendacion operativa
+
+- empezar con `enable_ufw_actions: false`
+- usar primero solo `Registrar revision`
+- despues habilitar bloqueo manual desde la interfaz
+- dejar `auto_block_enabled: true` solo cuando ya conozcas bien el comportamiento del laboratorio
