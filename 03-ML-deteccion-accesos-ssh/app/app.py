@@ -376,8 +376,9 @@ def render_sqlite_mode(thresholds: dict) -> None:
 
     st.subheader("Alertas filtradas")
     if not filtered_alerts.empty:
+        filtered_alerts_sorted = filtered_alerts.sort_values(["severity", "created_at"], ascending=[False, False])
         st.dataframe(
-            filtered_alerts[
+            filtered_alerts_sorted[
                 [
                     "created_at",
                     "block_label",
@@ -390,7 +391,7 @@ def render_sqlite_mode(thresholds: dict) -> None:
                     "rule_hits_display",
                     "reason_summary",
                 ]
-            ].sort_values(["severity", "created_at"], ascending=[False, False]),
+            ],
             use_container_width=True,
         )
     else:
