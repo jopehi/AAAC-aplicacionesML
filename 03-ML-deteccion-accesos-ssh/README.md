@@ -6,7 +6,17 @@ Este proyecto esta pensado para uso educativo y defensivo en entornos de laborat
 
 ## Documentacion Complementaria
 
+Este proyecto tiene un documento ampliado para la evolucion operativa en Ubuntu 24:
+
 - [Monitoreo en tiempo real con systemd](C:/webdev/laragon/www/AAAC-aplicacionesML/03-ML-deteccion-accesos-ssh/docs/monitoreo-tiempo-real-systemd.md:1)
+
+Ese documento explica:
+
+- como pasar del procesamiento manual por lotes a monitoreo continuo
+- como usar `journalctl -u ssh -f` como fuente en tiempo real
+- como plantear scoring continuo y persistencia de alertas
+- como disenar respuestas preventivas graduales
+- que componentes futuros conviene implementar con `systemd`
 
 ## Objetivo
 
