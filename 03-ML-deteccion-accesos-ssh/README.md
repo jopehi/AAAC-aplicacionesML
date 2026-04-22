@@ -169,7 +169,7 @@ En esta carpeta ya quedan incluidos:
 - `scripts/build_features.py`
 - `scripts/train_baseline.py`
 - `app/app.py`
-- `data/raw/sample_auth.log`
+- `data/raw/sample_auth.log` como archivo de prueba incluido en el proyecto
 
 ### Estructura Minima Operativa
 
@@ -207,7 +207,7 @@ Opciones:
 Ejemplo:
 
 ```bash
-cp /var/log/auth.log data/raw/auth.log.sample
+cp /var/log/auth.log data/raw/auth.log
 ```
 
 o
@@ -223,7 +223,7 @@ Ejemplo esperado:
 ```bash
 python scripts/parse_ssh_logs.py \
   parse \
-  --input data/raw/auth.log.sample \
+  --input data/raw/auth.log \
   --output data/processed/ssh_events.csv
 ```
 
@@ -706,7 +706,7 @@ Ese camino da una primera version funcional rapidamente y deja base para evoluci
 
 ## Ejecucion Rapida De Prueba
 
-Con los archivos incluidos puedes probar el pipeline sin depender aun del `auth.log` real:
+Con los archivos incluidos puedes probar el pipeline sin depender aun del `auth.log` real. Esta prueba usa el archivo demo `data/raw/sample_auth.log`, mientras que el flujo operativo normal usa `data/raw/auth.log`:
 
 ```bash
 python scripts/parse_ssh_logs.py parse \
