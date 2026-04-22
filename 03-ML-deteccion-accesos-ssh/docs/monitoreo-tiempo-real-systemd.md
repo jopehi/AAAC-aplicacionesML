@@ -203,6 +203,176 @@ Cuando usarlo:
 
 Solo cuando ya validaste manualmente los pasos anteriores, instala las unidades de `systemd`.
 
+## Operacion Del Sistema
+
+Esta es la parte practica una vez ya creaste el servicio.
+
+### 1. Iniciar y dejar habilitado el monitor
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ssh-ml-monitor.service
+```
+
+Que hace:
+
+- recarga las unidades de `systemd`
+- arranca el monitor ahora mismo
+- deja el servicio habilitado para futuros reinicios
+
+### 2. Ver si el servicio esta corriendo
+
+```bash
+sudo systemctl status ssh-ml-monitor.service
+```
+
+Que debes buscar:
+
+- estado `active (running)`
+- que no aparezcan errores de Python
+- que el `ExecStart` apunte al proyecto correcto
+
+Si quieres una salida corta:
+
+```bash
+systemctl is-active ssh-ml-monitor.service
+```
+
+Resultado esperado:
+
+- debe responder `active`
+
+### 3. Ver los logs del servicio
+
+```bash
+journalctl -u ssh-ml-monitor.service -n 50 --no-pager
+```
+
+Para seguirlo en vivo:
+
+```bash
+journalctl -u ssh-ml-monitor.service -f
+```
+
+Esto sirve para:
+
+- ver si el script arranco
+- detectar errores de modelo, permisos o rutas
+- comprobar si el monitor esta procesando eventos nuevos
+
+### 4. Ver si ya se creo la base SQLite
+
+```bash
+ls -lh /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db
+```
+
+Que significa:
+
+- si el archivo existe, el monitor ya esta persistiendo datos
+- si no existe, el servicio arranco mal o aun no proceso eventos SSH reconocidos
+
+### 5. Ver si la base tiene eventos y alertas
+
+Si tienes `sqlite3` instalado:
+
+```bash
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT COUNT(*) FROM ssh_events;"
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT COUNT(*) FROM ssh_alerts;"
+```
+
+Tambien puedes revisar muestras:
+
+```bash
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT timestamp, source_ip, username, ssh_event_type, auth_result FROM ssh_events ORDER BY id DESC LIMIT 10;"
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT created_at, source_ip, username, prediction_label, reason_summary FROM ssh_alerts ORDER BY id DESC LIMIT 10;"
+```
+
+Que estas comprobando:
+
+- que el monitor si esta guardando eventos
+- que las reglas o el modelo estan generando alertas
+
+### 6. Ver el sistema desde la app
+
+Con `.venv` activo:
+
+```bash
+cd /03-ML-deteccion-accesos-ssh
+source .venv/bin/activate
+streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
+```
+
+Abre:
+
+- `http://IP_DEL_SERVIDOR:8501`
+
+Que deberias ver si la capa avanzada esta funcionando:
+
+- metricas de `Eventos`, `Fallos`, `Exitos` y `Alertas`
+- tabla `Top IPs por alertas`
+- tabla `Alertas recientes`
+- tabla `Eventos recientes`
+
+Importante:
+
+- si existe `data/processed/ssh_monitor.db`, la app prioriza SQLite
+- si no existe, vuelve al modo baseline con `scored_events.csv`
+
+### 7. Reiniciar o detener el servicio
+
+Reiniciar:
+
+```bash
+sudo systemctl restart ssh-ml-monitor.service
+```
+
+Detener:
+
+```bash
+sudo systemctl stop ssh-ml-monitor.service
+```
+
+Deshabilitar:
+
+```bash
+sudo systemctl disable ssh-ml-monitor.service
+```
+
+### 8. Habilitar el reentrenamiento periodico
+
+Cuando el monitor ya este estable, activa el timer:
+
+```bash
+sudo systemctl enable --now ssh-ml-retrain.timer
+```
+
+Ver estado:
+
+```bash
+sudo systemctl status ssh-ml-retrain.timer
+systemctl list-timers --all | grep ssh-ml-retrain
+```
+
+Ver el ultimo reentrenamiento:
+
+```bash
+journalctl -u ssh-ml-retrain.service -n 50 --no-pager
+```
+
+### 9. Flujo minimo de verificacion en produccion o laboratorio
+
+Si quieres comprobar rapido que todo esta bien, usa esta secuencia:
+
+```bash
+sudo systemctl status ssh-ml-monitor.service
+ls -lh /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT COUNT(*) FROM ssh_events;"
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT COUNT(*) FROM ssh_alerts;"
+journalctl -u ssh-ml-monitor.service -n 20 --no-pager
+```
+
+Si esos pasos salen bien, el sistema ya esta ejecutandose.
+
 ## Contexto
 
 En Ubuntu 24, `systemd` y `journald` son piezas centrales del sistema. Aunque `auth.log` puede seguir existiendo, una estrategia moderna de observabilidad debe contemplar:
