@@ -14,6 +14,7 @@ from typing import Deque
 import joblib
 import numpy as np
 import pandas as pd
+import sklearn
 
 from src.ssh_pipeline import ParsedEvent, load_settings, parse_log_line, parse_timestamp
 
@@ -68,9 +69,17 @@ def init_db(db_path: Path) -> sqlite3.Connection:
 
 
 def load_artifacts(model_path: Path, metadata_path: Path, settings_path: Path | None) -> MonitorArtifacts:
-    model = joblib.load(model_path)
     with metadata_path.open("r", encoding="utf-8") as handle:
         metadata = json.load(handle)
+    model_version = metadata.get("sklearn_version")
+    current_version = sklearn.__version__
+    if model_version and model_version != current_version:
+        print(
+            f"Advertencia: el modelo fue entrenado con scikit-learn {model_version} "
+            f"y el entorno actual usa {current_version}. Conviene reentrenar con "
+            f"'python scripts/retrain_model.py --input-log /var/log/auth.log'."
+        )
+    model = joblib.load(model_path)
     settings = load_settings(settings_path)
     return MonitorArtifacts(
         model=model,
@@ -342,4 +351,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -191,7 +191,7 @@ El proyecto ya incluye un archivo `requirements.txt` con las dependencias base d
 ```text
 pandas
 numpy
-scikit-learn
+scikit-learn==1.5.2
 joblib
 matplotlib
 seaborn
@@ -205,6 +205,11 @@ Instalar:
 ```bash
 pip install -r requirements.txt
 ```
+
+Importante:
+
+- el baseline incluido fue generado con `scikit-learn 1.5.2`
+- si tu entorno tenia otra version instalada, actualiza dependencias y reentrena el modelo una vez
 
 En esta carpeta ya quedan incluidos:
 
@@ -232,7 +237,7 @@ Para considerar que la solucion puede arrancar en Ubuntu 24, deberian existir al
 - un modelo guardado en `models/`
 - una interfaz o script de inferencia
 
-## Ruta De Implementacion Recomendada
+## PROCESO DE IMPLEMENTACION
 
 Esta es la ruta oficial para construir el proyecto sin mezclar etapas:
 
@@ -288,6 +293,13 @@ Importante:
 ## Flujo Baseline Paso A Paso
 
 Este bloque corresponde solo a la version inicial.
+
+Todos los comandos de esta seccion, salvo los que empiezan por `sudo`, deben ejecutarse con el entorno virtual activo:
+
+```bash
+cd /03-ML-deteccion-accesos-ssh
+source .venv/bin/activate
+```
 
 #### Paso 1: Entrar al proyecto
 
@@ -959,6 +971,8 @@ Ese camino da una primera version funcional rapidamente y deja base para evoluci
 
 Con los archivos incluidos puedes probar el pipeline sin depender aun del `auth.log` real. Esta prueba usa el archivo demo `data/raw/sample_auth.log`, mientras que el flujo operativo normal usa `data/raw/auth.log`:
 
+Ejecuta estos comandos con `.venv` activo:
+
 ```bash
 python scripts/parse_ssh_logs.py parse \
   --input data/raw/sample_auth.log \
@@ -979,6 +993,8 @@ streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
 ## Validacion Del Baseline
 
 Antes de probar cambios grandes o la capa avanzada, puedes validar que la version inicial siga funcionando sin tocar sus artefactos principales:
+
+Ejecuta este comando con `.venv` activo:
 
 ```bash
 python scripts/validate_baseline.py
@@ -1014,6 +1030,8 @@ Resumen corto. El detalle formal vive en el documento avanzado.
 
 Primero puedes reprocesar el log actual y luego seguir eventos nuevos sin copiar archivos:
 
+Ejecuta este comando con `.venv` activo:
+
 ```bash
 python scripts/run_realtime_monitor.py \
   --input-file /var/log/auth.log \
@@ -1023,6 +1041,8 @@ python scripts/run_realtime_monitor.py \
 
 Si prefieres usar `systemd` como fuente principal:
 
+Ejecuta este comando con `.venv` activo:
+
 ```bash
 python scripts/run_realtime_monitor.py \
   --follow-journal
@@ -1031,6 +1051,8 @@ python scripts/run_realtime_monitor.py \
 ### Reentrenamiento manual
 
 Para refrescar el baseline con el log real del servidor:
+
+Ejecuta este comando con `.venv` activo:
 
 ```bash
 python scripts/retrain_model.py \
@@ -1045,3 +1067,5 @@ Este comando:
 - entrena de nuevo `Isolation Forest`
 - actualiza `models/model_metadata.json`
 - deja un resumen en `models/retrain_summary.json`
+
+Si antes habias creado el entorno con otra version de `scikit-learn`, este paso tambien corrige los avisos de incompatibilidad de version del modelo.

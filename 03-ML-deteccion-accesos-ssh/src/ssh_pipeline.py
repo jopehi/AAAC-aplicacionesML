@@ -10,6 +10,7 @@ from typing import Iterable
 import joblib
 import numpy as np
 import pandas as pd
+import sklearn
 from sklearn.ensemble import IsolationForest
 
 
@@ -328,6 +329,7 @@ def train_baseline_model(
         "feature_columns": numeric_features,
         "contamination": contamination,
         "random_state": random_state,
+        "sklearn_version": sklearn.__version__,
         "training_rows": int(len(frame)),
         "high_risk_count": int((prediction_label == "high_risk").sum()),
     }

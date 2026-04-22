@@ -51,6 +51,15 @@ Orden recomendado dentro de este documento:
 3. usar `Estado Actual De Implementacion`
 4. aplicar `Despliegue con systemd`
 
+## Antes De Ejecutar Comandos
+
+Salvo que el comando comience por `sudo` o sea una unidad de `systemd`, los ejemplos de este documento deben ejecutarse con `.venv` activo:
+
+```bash
+cd /03-ML-deteccion-accesos-ssh
+source .venv/bin/activate
+```
+
 ## Contexto
 
 En Ubuntu 24, `systemd` y `journald` son piezas centrales del sistema. Aunque `auth.log` puede seguir existiendo, una estrategia moderna de observabilidad debe contemplar:

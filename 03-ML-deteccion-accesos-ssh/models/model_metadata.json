@@ -19,6 +19,7 @@
   ],
   "contamination": 0.08,
   "random_state": 42,
+  "sklearn_version": "1.5.2",
   "training_rows": 10,
   "high_risk_count": 1
 }
