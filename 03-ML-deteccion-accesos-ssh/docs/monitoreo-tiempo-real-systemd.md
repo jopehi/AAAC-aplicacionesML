@@ -410,6 +410,52 @@ entonces generar alerta de alta prioridad
 
 ## Integracion Con systemd
 
+En esta seccion hay dos piezas distintas. No hacen lo mismo y no compiten entre si; normalmente se usan juntas.
+
+Idea general:
+
+- una cosa es monitorear eventos nuevos en tiempo real
+- otra cosa es reentrenar el modelo cada cierto tiempo
+
+Diferencia corta:
+
+- `Servicio Residente` = proceso siempre encendido para vigilar eventos nuevos
+- `Timer De Reentrenamiento` = tarea programada que se ejecuta en momentos definidos para refrescar el modelo
+
+En otras palabras:
+
+- el servicio observa
+- el timer mantiene actualizado el modelo
+
+Ejemplo practico:
+
+- `ssh-ml-monitor.service` corre todo el tiempo y escribe alertas nuevas en SQLite
+- `ssh-ml-retrain.timer` dispara `ssh-ml-retrain.service` cada cierto intervalo para volver a entrenar el baseline
+
+Por que conviene separarlos:
+
+- el monitoreo continuo debe ser ligero y estable
+- el reentrenamiento consume mas CPU y cambia artefactos del modelo
+- separar ambas funciones evita mezclar una tarea de observacion permanente con una tarea periodica de mantenimiento
+
+Secuencia recomendada:
+
+1. primero levantar el servicio residente
+2. validar que genera eventos y alertas
+3. despues activar el timer de reentrenamiento
+
+Si solo habilitas el servicio:
+
+- tendras monitoreo y alertas
+- pero el modelo no se refrescara automaticamente
+
+Si solo habilitas el timer:
+
+- el modelo se reentrenara periodicamente
+- pero no tendras monitoreo continuo ni alertas en tiempo real
+
+Por eso, en una version operativa completa, ambos componentes se complementan.
+
 ### Opcion A: Servicio Residente
 
 Crear un servicio del tipo:
