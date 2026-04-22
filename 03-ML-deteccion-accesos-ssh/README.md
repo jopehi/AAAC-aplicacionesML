@@ -53,6 +53,243 @@ La aplicacion debe poder:
 └── README.md
 ```
 
+## Requisitos Para Ubuntu 24 Desde Cero
+
+Esta seccion describe lo minimo necesario para poner en funcionamiento la solucion en un servidor Ubuntu 24 limpio.
+
+### Requisitos De Sistema
+
+- Ubuntu 24.04 LTS
+- acceso a `sudo`
+- servicio SSH activo en el equipo de laboratorio
+- conectividad de red entre el generador de ruido y el servidor monitoreado, si aplica
+- al menos 2 vCPU, 4 GB de RAM y 20 GB libres para laboratorio pequeno
+
+### Paquetes Del Sistema
+
+Instalar primero las dependencias base:
+
+```bash
+sudo apt update
+sudo apt install -y \
+  python3 \
+  python3-pip \
+  python3-venv \
+  python3-dev \
+  build-essential \
+  git \
+  curl \
+  jq \
+  rsyslog \
+  openssh-server
+```
+
+Verificar que SSH y logs esten disponibles:
+
+```bash
+sudo systemctl enable ssh
+sudo systemctl start ssh
+sudo systemctl status ssh
+
+ls -l /var/log/auth.log
+sudo tail -n 20 /var/log/auth.log
+```
+
+### Permisos Y Acceso A Logs
+
+La solucion necesita leer eventos SSH. En Ubuntu 24 normalmente se usan:
+
+- `/var/log/auth.log`
+- `journalctl -u ssh`
+
+Opciones recomendadas:
+
+#### Opcion A: Ejecutar el parser con `sudo`
+
+Es la forma mas simple en laboratorio.
+
+#### Opcion B: Dar acceso controlado al grupo `adm`
+
+```bash
+sudo usermod -aG adm $USER
+newgrp adm
+```
+
+Luego validar:
+
+```bash
+groups
+tail -n 20 /var/log/auth.log
+```
+
+### Preparacion De Python
+
+Desde la carpeta del proyecto:
+
+```bash
+cd /ruta/al/proyecto/03-ML-deteccion-accesos-ssh
+
+python3 -m venv .venv
+source .venv/bin/activate
+
+python -m pip install --upgrade pip wheel setuptools
+```
+
+### Dependencias Python Recomendadas
+
+Crear un `requirements.txt` con una base como esta:
+
+```text
+pandas
+numpy
+scikit-learn
+joblib
+matplotlib
+seaborn
+streamlit
+pyyaml
+python-dateutil
+```
+
+Instalar:
+
+```bash
+pip install -r requirements.txt
+```
+
+En esta carpeta ya quedan incluidos:
+
+- `requirements.txt`
+- `config/settings.yaml`
+- `scripts/parse_ssh_logs.py`
+- `scripts/build_features.py`
+- `scripts/train_baseline.py`
+- `app/app.py`
+- `data/raw/sample_auth.log`
+
+### Estructura Minima Operativa
+
+Para considerar que la solucion puede arrancar en Ubuntu 24, deberian existir al menos:
+
+- un parser de logs SSH
+- un generador de features
+- un script de entrenamiento
+- un modelo guardado en `models/`
+- una interfaz o script de inferencia
+
+### Flujo Minimo De Puesta En Marcha
+
+#### Paso 1: Copiar o clonar el repositorio
+
+```bash
+git clone <repo-url>
+cd AAAC-aplicacionesML/03-ML-deteccion-accesos-ssh
+```
+
+#### Paso 2: Crear entorno virtual e instalar dependencias
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+#### Paso 3: Obtener datos crudos
+
+Opciones:
+
+- copiar una muestra de `/var/log/auth.log` a `data/raw/`
+- exportar eventos con `journalctl`
+
+Ejemplo:
+
+```bash
+cp /var/log/auth.log data/raw/auth.log.sample
+```
+
+o
+
+```bash
+journalctl -u ssh --since "2026-04-20 00:00:00" > data/raw/journal_ssh.log
+```
+
+#### Paso 4: Ejecutar parsing
+
+Ejemplo esperado:
+
+```bash
+python scripts/parse_ssh_logs.py \
+  parse \
+  --input data/raw/auth.log.sample \
+  --output data/processed/ssh_events.csv
+```
+
+#### Paso 5: Ejecutar feature engineering
+
+```bash
+python scripts/build_features.py \
+  features \
+  --input data/processed/ssh_events.csv \
+  --output data/processed/ssh_features.csv
+```
+
+#### Paso 6: Entrenar modelo baseline
+
+```bash
+python scripts/train_baseline.py \
+  train \
+  --input data/processed/ssh_features.csv \
+  --model-output models/ssh_anomaly_model.joblib \
+  --metadata-output models/model_metadata.json
+```
+
+#### Paso 7: Levantar la app
+
+Si la interfaz se construye con Streamlit:
+
+```bash
+streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
+```
+
+Luego abrir en navegador:
+
+- `http://IP_DEL_SERVIDOR:8501`
+
+### Puertos Y Firewall
+
+Si la app se expone en red local para laboratorio:
+
+```bash
+sudo ufw allow 22/tcp
+sudo ufw allow 8501/tcp
+sudo ufw enable
+sudo ufw status
+```
+
+### Buenas Practicas Operativas Minimas
+
+- no entrenar modelos con logs contaminados sin separar periodos
+- conservar una copia del log crudo original
+- no ejecutar la app como `root`
+- separar datos de entrenamiento y validacion
+- versionar el modelo y su lista de features
+- registrar fecha de entrenamiento y fuente de datos
+
+### Checklist De Validacion En Ubuntu 24
+
+Antes de considerar el despliegue listo, verificar:
+
+- `python3 --version`
+- `pip --version`
+- `systemctl status ssh`
+- lectura de `/var/log/auth.log`
+- entorno virtual funcional
+- dependencias instaladas
+- parser genera `ssh_events.csv`
+- feature engineering genera `ssh_features.csv`
+- entrenamiento produce modelo en `models/`
+- interfaz responde en el puerto configurado
+
 ## Arquitectura Propuesta
 
 ### 1. Capa De Ingesta
@@ -462,3 +699,23 @@ Implementar primero el pipeline minimo:
 
 Ese camino da una primera version funcional rapidamente y deja base para evolucionar a modelos supervisados.
 
+## Ejecucion Rapida De Prueba
+
+Con los archivos incluidos puedes probar el pipeline sin depender aun del `auth.log` real:
+
+```bash
+python scripts/parse_ssh_logs.py parse \
+  --input data/raw/sample_auth.log \
+  --output data/processed/ssh_events.csv
+
+python scripts/build_features.py features \
+  --input data/processed/ssh_events.csv \
+  --output data/processed/ssh_features.csv
+
+python scripts/train_baseline.py train \
+  --input data/processed/ssh_features.csv \
+  --model-output models/ssh_anomaly_model.joblib \
+  --metadata-output models/model_metadata.json
+
+streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
+```

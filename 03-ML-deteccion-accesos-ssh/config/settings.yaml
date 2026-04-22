@@ -1,0 +1,14 @@
+project:
+  name: ssh-anomaly-detection
+  timezone: UTC
+
+features:
+  windows_minutes:
+    - 1
+    - 5
+    - 15
+
+model:
+  contamination: 0.08
+  random_state: 42
+
