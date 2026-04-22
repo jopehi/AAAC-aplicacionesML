@@ -3,10 +3,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import sqlite3
+import sys
 
 import pandas as pd
 import streamlit as st
 import yaml
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
 
 from src.response_actions import (
     classify_response_level,
@@ -15,7 +20,6 @@ from src.response_actions import (
     ufw_available,
 )
 
-BASE_DIR = Path(__file__).resolve().parents[1]
 SCORED_PATH = BASE_DIR / "models" / "scored_events.csv"
 SQLITE_PATH = BASE_DIR / "data" / "processed" / "ssh_monitor.db"
 SETTINGS_PATH = BASE_DIR / "config" / "settings.yaml"
