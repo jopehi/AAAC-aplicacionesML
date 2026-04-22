@@ -1,0 +1,464 @@
+# Deteccion De Accesos SSH Anomalos Con Machine Learning
+
+## Aviso Importante
+
+Este proyecto esta pensado para uso educativo y defensivo en entornos de laboratorio autorizados. El objetivo es detectar actividad anomala en accesos SSH a partir de logs y eventos observables, no automatizar intrusiones ni atacar sistemas de terceros.
+
+## Objetivo
+
+Construir una aplicacion reproducible con machine learning para detectar intentos anormales de acceso por SSH, usando datos de autenticacion del sistema, variables derivadas de comportamiento y un flujo de entrenamiento e inferencia que cualquier persona pueda replicar en su propio laboratorio.
+
+## Problema A Resolver
+
+En un servidor Linux expuesto a SSH suelen aparecer:
+
+- intentos fallidos repetidos
+- password spraying
+- fuerza bruta distribuida o secuencial
+- accesos en horarios anormales
+- cambios de patron por IP, usuario o frecuencia
+
+La meta del sistema es transformar esos eventos en:
+
+- registros estructurados
+- variables utiles para analisis
+- un modelo que estime anomalia o riesgo
+- una interfaz para revisar alertas
+
+## Resultado Esperado
+
+La aplicacion debe poder:
+
+1. leer logs SSH desde archivos o `journalctl`
+2. parsear eventos de autenticacion
+3. generar features por ventana de tiempo, IP, usuario y host
+4. entrenar un modelo de deteccion de anomalias o clasificacion
+5. puntuar nuevos eventos
+6. mostrar alertas y evidencias para analista
+
+## Estructura Del Proyecto
+
+```text
+03-ML-deteccion-accesos-ssh/
+├── app/              # interfaz o API de consulta
+├── config/           # configuracion del pipeline
+├── data/
+│   ├── raw/          # logs originales
+│   └── processed/    # datasets limpios y features
+├── docs/             # notas de diseno y decisiones
+├── models/           # artefactos entrenados
+├── notebooks/        # exploracion y experimentacion
+├── scripts/          # ingesta, entrenamiento y evaluacion
+├── src/              # codigo fuente principal
+└── README.md
+```
+
+## Arquitectura Propuesta
+
+### 1. Capa De Ingesta
+
+Fuentes posibles:
+
+- `/var/log/auth.log`
+- `/var/log/secure`
+- salida de `journalctl -u ssh`
+- exportaciones CSV desde SIEM o agentes
+
+Responsabilidades:
+
+- leer archivos o streams
+- normalizar timestamps
+- identificar eventos SSH relevantes
+- conservar campos originales para trazabilidad
+
+### 2. Capa De Parsing
+
+Eventos utiles:
+
+- `Failed password`
+- `Accepted password`
+- `Invalid user`
+- `Connection closed`
+- `Disconnecting`
+- bloqueos de `fail2ban` si existen
+
+Campos base sugeridos:
+
+- `timestamp`
+- `hostname`
+- `source_ip`
+- `source_port`
+- `username`
+- `ssh_event_type`
+- `auth_result`
+- `raw_message`
+
+### 3. Capa De Feature Engineering
+
+Variables sugeridas por ventana de tiempo:
+
+- intentos por IP en 1, 5 y 15 minutos
+- intentos por usuario en 1, 5 y 15 minutos
+- cantidad de usuarios distintos por IP
+- cantidad de IPs distintas por usuario
+- ratio de fallos sobre exitos
+- primer acceso del dia para usuario
+- hora del evento
+- dia de semana
+- distancia respecto al horario habitual del usuario
+- secuencia `invalid user -> failed password -> disconnect`
+- numero de hosts objetivo por origen, si aplica
+
+### 4. Capa De Modelado
+
+Dos caminos razonables:
+
+#### Opcion A: Deteccion De Anomalias
+
+Cuando no hay etiquetas confiables.
+
+Modelos posibles:
+
+- `Isolation Forest`
+- `Local Outlier Factor`
+- `One-Class SVM`
+
+Ventajas:
+
+- util cuando solo hay datos historicos normales o poco etiquetados
+- rapido para prototipos de laboratorio
+
+#### Opcion B: Clasificacion Supervisada
+
+Cuando ya hay etiquetas `normal` vs `sospechoso`.
+
+Modelos posibles:
+
+- `Logistic Regression`
+- `Random Forest`
+- `XGBoost` o `LightGBM`
+
+Ventajas:
+
+- mejor interpretabilidad comparativa
+- permite medir precision, recall y F1
+
+### 5. Capa De Inferencia
+
+Salida sugerida por evento o ventana:
+
+- `risk_score`
+- `prediction_label`
+- `top_features`
+- `reason_summary`
+
+Ejemplos de etiquetas:
+
+- `normal`
+- `review`
+- `high_risk`
+
+### 6. Capa De Visualizacion
+
+Opciones viables:
+
+- `Streamlit` para una interfaz rapida
+- `FastAPI` para API + frontend liviano
+- `Flask` si se quiere una UI simple y controlada
+
+Pantallas sugeridas:
+
+- resumen de actividad SSH
+- alertas recientes
+- top IPs sospechosas
+- top usuarios atacados
+- detalle de una alerta con su contexto
+- historial de riesgo por IP o usuario
+
+## Flujo De Construccion Reproducible
+
+### Paso 1: Preparar El Entorno
+
+Stack sugerido:
+
+- Python 3.11+
+- `pandas`
+- `numpy`
+- `scikit-learn`
+- `matplotlib`
+- `seaborn`
+- `joblib`
+- `streamlit` o `fastapi`
+
+Recomendacion:
+
+- crear un entorno virtual
+- fijar dependencias en `requirements.txt`
+- versionar configuracion y scripts
+
+### Paso 2: Recolectar Datos
+
+Usar solo logs del laboratorio autorizado.
+
+Estrategias:
+
+- recopilar ventanas normales de uso
+- generar ruido controlado en el laboratorio
+- conservar tambien periodos sin incidentes
+
+Fuentes de datos para laboratorio:
+
+- logs naturales del servidor SSH
+- actividad administrativa legitima
+- ruido de laboratorio autorizado desde `02-lab_hydra`
+
+### Paso 3: Parsear Y Estructurar
+
+Crear un script de parsing que convierta logs crudos a un CSV o parquet estructurado.
+
+Salida recomendada:
+
+- `data/processed/ssh_events.csv`
+
+### Paso 4: Etiquetar O Definir Estrategia
+
+Escenarios:
+
+- si no hay etiquetas, iniciar con anomaly detection
+- si hay eventos claramente artificiales o revisados, crear etiquetas
+
+Etiquetas sugeridas:
+
+- `0 = normal`
+- `1 = sospechoso`
+
+### Paso 5: Generar Features
+
+Crear ventanas temporales y agregaciones por:
+
+- IP
+- usuario
+- host
+- combinacion `IP + usuario`
+
+Salida recomendada:
+
+- `data/processed/ssh_features.csv`
+
+### Paso 6: Entrenar El Modelo
+
+Recomendacion inicial:
+
+- baseline no supervisado con `Isolation Forest`
+- baseline supervisado con `Logistic Regression` o `Random Forest`
+
+Guardar:
+
+- modelo entrenado
+- scaler si se usa
+- lista de features
+- metricas del experimento
+
+Salida sugerida:
+
+- `models/ssh_anomaly_model.joblib`
+- `models/feature_columns.json`
+
+### Paso 7: Evaluar
+
+Metricas segun enfoque:
+
+#### Para clasificacion
+
+- precision
+- recall
+- F1-score
+- matriz de confusion
+- ROC-AUC
+
+#### Para anomalias
+
+- tasa de alertas
+- precision en top-N alertas revisadas
+- estabilidad por ventanas
+- utilidad analitica de los falsos positivos
+
+### Paso 8: Construir La Aplicacion
+
+La app debe permitir:
+
+- cargar nuevos eventos
+- calcular features
+- ejecutar inferencia
+- mostrar score y explicacion
+
+Componentes minimos:
+
+- cargador de archivo o ruta de log
+- panel de resultados
+- tabla de alertas
+- detalle de cada evento sospechoso
+
+### Paso 9: Operacionalizar
+
+Si el sistema madura:
+
+- ejecucion programada cada N minutos
+- guardado de resultados en base de datos
+- integracion con SIEM o dashboard
+- versionado de modelos
+
+## Diseño De Datos
+
+### Dataset De Eventos
+
+Columnas sugeridas:
+
+- `timestamp`
+- `hostname`
+- `source_ip`
+- `source_port`
+- `username`
+- `auth_result`
+- `ssh_event_type`
+- `raw_message`
+
+### Dataset De Features
+
+Columnas sugeridas:
+
+- `window_start`
+- `window_end`
+- `source_ip`
+- `username`
+- `failed_count_1m`
+- `failed_count_5m`
+- `user_count_per_ip_5m`
+- `ip_count_per_user_5m`
+- `success_count_15m`
+- `failure_success_ratio`
+- `hour_of_day`
+- `is_weekend`
+- `label`
+
+## Diseño Del Modelo Inicial
+
+### Baseline 1: Isolation Forest
+
+Uso recomendado:
+
+- cuando se parte con pocos datos etiquetados
+
+Entrada:
+
+- features numericas agregadas por ventana
+
+Salida:
+
+- score de anomalia
+- clasificacion binaria usando umbral
+
+### Baseline 2: Random Forest
+
+Uso recomendado:
+
+- cuando se dispone de etiquetas de laboratorio
+
+Ventajas:
+
+- robusto
+- facil de comparar
+- interpretacion aceptable con feature importance
+
+## Diseño De La App
+
+### Interfaz Sugerida
+
+#### Vista 1: Resumen
+
+- total de eventos procesados
+- total de fallos
+- total de exitos
+- alertas generadas
+
+#### Vista 2: Top Riesgo
+
+- top IPs por score
+- top usuarios mas atacados
+- franjas horarias mas anormales
+
+#### Vista 3: Alertas
+
+- timestamp
+- IP
+- usuario
+- score
+- etiqueta
+- razon principal
+
+#### Vista 4: Evidencia
+
+- evento crudo
+- features calculadas
+- contexto de ventana
+- historial de esa IP o usuario
+
+## Roadmap Recomendado
+
+### Fase 1
+
+- parsing de logs
+- dataset estructurado
+- exploracion inicial
+
+### Fase 2
+
+- engineering de features
+- primer modelo baseline
+- evaluacion
+
+### Fase 3
+
+- app de consulta
+- filtros y alertas
+- reporte de razones
+
+### Fase 4
+
+- mejora de modelos
+- explicabilidad
+- versionado y monitoreo
+
+## Buenas Practicas De Reproduccion
+
+- fijar version de dependencias
+- guardar muestras anonimizadas
+- documentar columnas y features
+- separar datos crudos de procesados
+- no sobreescribir modelos sin version
+- registrar metricas de cada experimento
+
+## Entregables Minimos
+
+Para considerar el proyecto reproducible, deberia incluir:
+
+- `README.md` completo
+- script de parsing
+- script de features
+- script de entrenamiento
+- modelo baseline
+- ejemplos de datos
+- una app o dashboard minimo
+
+## Proximo Paso Sugerido
+
+Implementar primero el pipeline minimo:
+
+1. parser de `auth.log`
+2. dataset `ssh_events.csv`
+3. feature engineering simple
+4. `Isolation Forest`
+5. dashboard basico
+
+Ese camino da una primera version funcional rapidamente y deja base para evolucionar a modelos supervisados.
+
