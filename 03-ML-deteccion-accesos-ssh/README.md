@@ -4,6 +4,10 @@
 
 Este proyecto esta pensado para uso educativo y defensivo en entornos de laboratorio autorizados. El objetivo es detectar actividad anomala en accesos SSH a partir de logs y eventos observables, no automatizar intrusiones ni atacar sistemas de terceros.
 
+## Documentacion Complementaria
+
+- [Monitoreo en tiempo real con systemd](C:/webdev/laragon/www/AAAC-aplicacionesML/03-ML-deteccion-accesos-ssh/docs/monitoreo-tiempo-real-systemd.md:1)
+
 ## Objetivo
 
 Construir una aplicacion reproducible con machine learning para detectar intentos anormales de acceso por SSH, usando datos de autenticacion del sistema, variables derivadas de comportamiento y un flujo de entrenamiento e inferencia que cualquier persona pueda replicar en su propio laboratorio.
