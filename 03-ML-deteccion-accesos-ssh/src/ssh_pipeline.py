@@ -13,24 +13,27 @@ import pandas as pd
 from sklearn.ensemble import IsolationForest
 
 
-FAILED_PASSWORD_RE = re.compile(
-    r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d\d:\d\d:\d\d)\s+"
-    r"(?P<hostname>\S+)\s+sshd\[\d+\]:\s+Failed password for "
-    r"(?:(invalid user )?)(?P<username>\S+)\s+from\s+"
-    r"(?P<source_ip>\d+\.\d+\.\d+\.\d+)\s+port\s+(?P<source_port>\d+)"
+ISO_PREFIX_RE = re.compile(r"^(?P<timestamp>\d{4}-\d{2}-\d{2}T\S+)\s+(?P<hostname>\S+)\s+(?P<message>.+)$")
+SYSLOG_PREFIX_RE = re.compile(
+    r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d\d:\d\d:\d\d)\s+(?P<hostname>\S+)\s+(?P<message>.+)$"
 )
 
-ACCEPTED_PASSWORD_RE = re.compile(
-    r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d\d:\d\d:\d\d)\s+"
-    r"(?P<hostname>\S+)\s+sshd\[\d+\]:\s+Accepted password for "
-    r"(?P<username>\S+)\s+from\s+(?P<source_ip>\d+\.\d+\.\d+\.\d+)\s+"
-    r"port\s+(?P<source_port>\d+)"
+FAILED_PASSWORD_MSG_RE = re.compile(
+    r"^sshd\[\d+\]:\s+Failed password for (?:(invalid user )?)(?P<username>\S+)\s+from\s+"
+    r"(?P<source_ip>[0-9a-fA-F:\.]+)\s+port\s+(?P<source_port>\d+)"
 )
 
-INVALID_USER_RE = re.compile(
-    r"^(?P<timestamp>[A-Z][a-z]{2}\s+\d+\s+\d\d:\d\d:\d\d)\s+"
-    r"(?P<hostname>\S+)\s+sshd\[\d+\]:\s+Invalid user\s+"
-    r"(?P<username>\S+)\s+from\s+(?P<source_ip>\d+\.\d+\.\d+\.\d+)"
+ACCEPTED_PASSWORD_MSG_RE = re.compile(
+    r"^sshd\[\d+\]:\s+Accepted password for (?P<username>\S+)\s+from\s+"
+    r"(?P<source_ip>[0-9a-fA-F:\.]+)\s+port\s+(?P<source_port>\d+)"
+)
+
+INVALID_USER_MSG_RE = re.compile(
+    r"^sshd\[\d+\]:\s+Invalid user\s+(?P<username>\S+)\s+from\s+(?P<source_ip>[0-9a-fA-F:\.]+)"
+)
+
+SSH_SESSION_OPENED_MSG_RE = re.compile(
+    r"^sshd\[\d+\]:\s+pam_unix\(sshd:session\): session opened for user\s+(?P<username>[^\(\s]+)"
 )
 
 
@@ -66,23 +69,41 @@ def load_settings(config_path: Path | None) -> dict:
 
 
 def parse_timestamp(value: str, year: int) -> pd.Timestamp:
+    if "T" in value:
+        return pd.to_datetime(value, errors="coerce", utc=True)
     return pd.to_datetime(f"{year} {value}", format="%Y %b %d %H:%M:%S", errors="coerce")
 
 
-def parse_log_line(line: str) -> ParsedEvent | None:
-    for regex, event_type, auth_result in (
-        (FAILED_PASSWORD_RE, "failed_password", "failure"),
-        (ACCEPTED_PASSWORD_RE, "accepted_password", "success"),
-        (INVALID_USER_RE, "invalid_user", "failure"),
-    ):
+def split_log_prefix(line: str) -> tuple[str, str, str] | None:
+    for regex in (ISO_PREFIX_RE, SYSLOG_PREFIX_RE):
         match = regex.search(line)
+        if match:
+            groups = match.groupdict()
+            return groups["timestamp"], groups["hostname"], groups["message"]
+    return None
+
+
+def parse_log_line(line: str) -> ParsedEvent | None:
+    parts = split_log_prefix(line.strip())
+    if parts is None:
+        return None
+
+    timestamp, hostname, message = parts
+
+    for regex, event_type, auth_result in (
+        (FAILED_PASSWORD_MSG_RE, "failed_password", "failure"),
+        (ACCEPTED_PASSWORD_MSG_RE, "accepted_password", "success"),
+        (INVALID_USER_MSG_RE, "invalid_user", "failure"),
+        (SSH_SESSION_OPENED_MSG_RE, "ssh_session_opened", "success"),
+    ):
+        match = regex.search(message)
         if match:
             groups = match.groupdict()
             port_value = groups.get("source_port")
             return ParsedEvent(
-                timestamp=groups["timestamp"],
-                hostname=groups["hostname"],
-                source_ip=groups["source_ip"],
+                timestamp=timestamp,
+                hostname=hostname,
+                source_ip=groups.get("source_ip", "unknown"),
                 source_port=int(port_value) if port_value else None,
                 username=groups["username"],
                 ssh_event_type=event_type,

@@ -1,0 +1,4 @@
+2026-04-22T15:21:31.143080+00:00 appserver sshd[1041]: Accepted password for root from 192.168.1.9 port 20865 ssh2
+2026-04-22T15:26:57.760390+00:00 appserver sshd[3873]: Accepted password for root from 192.168.1.9 port 1195 ssh2
+2026-04-22T18:48:30.813081+00:00 appserver sshd[15110]: Accepted password for root from 192.168.1.17 port 17303 ssh2
+2026-04-22T18:48:30.818854+00:00 appserver sshd[15110]: pam_unix(sshd:session): session opened for user root(uid=0) by root(uid=0)
