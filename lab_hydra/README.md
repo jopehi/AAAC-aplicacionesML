@@ -282,7 +282,87 @@ sudo fail2ban-client unban --all 2>/dev/null || true
 
 ---
 
-## 📚 Recursos Adicionales
+## � Interpretación Detallada de la Salida de Hydra
+
+### Elementos Clave en la Salida
+
+- **[DATA]**: Información inicial sobre el ataque.
+  - `max 6 tasks per 1 server`: Máximo de 6 hilos por servidor.
+  - `overall 6 tasks`: Total de tareas activas.
+  - `3120 login tries (l:60/p:52)`: Total de intentos (60 usuarios × 52 contraseñas).
+  - `~520 tries per task`: Intentos por hilo.
+
+- **[STATUS]**: Progreso en tiempo real.
+  - `3120.00 tries/min`: Velocidad de intentos por minuto.
+  - `3120 tries in 00:01h`: Intentos completados en tiempo.
+  - `0 to do`: Intentos restantes.
+  - `6 active`: Hilos activos.
+
+- **[22][ssh]**: Indicador de éxito.
+  - `host: 192.168.1.18`: Servidor objetivo.
+  - `login: root`: Usuario encontrado.
+  - `password: 123456`: Contraseña encontrada.
+
+- **Errores Comunes**:
+  - `ERROR: No route to host`: El host no es accesible (firewall, red).
+  - `ERROR: Connection refused`: Puerto SSH cerrado o servicio no corriendo.
+  - `ERROR: Read failed`: Conexión interrumpida (posible bloqueo por fail2ban).
+  - `WARNING: Restore file exists`: Hydra encontró un archivo de restauración de sesión anterior.
+
+### Consejos para Interpretar
+- Si el ataque es rápido y no encuentra nada, el servidor probablemente tiene contraseñas fuertes o autenticación por clave.
+- Un ataque lento indica posibles limitaciones de red o defensas activas.
+- Monitorea el `[STATUS]` para estimar tiempo restante.
+
+---
+
+## 📡 Monitoreo en Tiempo Real en la Máquina Destino
+
+Para observar qué sucede en el servidor objetivo (`192.168.1.18`) durante el ataque, conecta vía SSH (o accede físicamente) y ejecuta comandos para ver los logs en tiempo real. Esto te permite ver los intentos de login fallidos generados por Hydra.
+
+### Comando Principal: Ver Logs de Autenticación
+
+```bash
+# En Ubuntu/Debian (y la mayoría de distribuciones Linux)
+sudo tail -f /var/log/auth.log
+
+# En CentOS/RHEL/Fedora
+sudo tail -f /var/log/secure
+
+# En otras distros, busca en /var/log/ (ej. syslog, messages)
+sudo tail -f /var/log/syslog
+```
+
+### Qué Verás en los Logs
+
+- **Intentos Fallidos**: Aparecerán líneas como:
+  ```
+  Apr 22 14:30:00 server sshd[12345]: Failed password for root from 192.168.1.100 port 22 ssh2
+  Apr 22 14:30:01 server sshd[12346]: Failed password for admin from 192.168.1.100 port 22 ssh2
+  ```
+  - `Failed password`: Indica un intento fallido.
+  - `for root/admin/etc.`: Usuario probado.
+  - `from 192.168.1.100`: IP del atacante (tu máquina ejecutando Hydra).
+
+- **Bloqueos por Fail2ban**: Si tienes fail2ban activado:
+  ```
+  Apr 22 14:31:00 server fail2ban.actions[6789]: NOTICE [sshd] Ban 192.168.1.100
+  ```
+
+- **Éxito (si ocurre)**: Si Hydra encuentra credenciales válidas, verás:
+  ```
+  Apr 22 14:32:00 server sshd[12347]: Accepted password for root from 192.168.1.100 port 22 ssh2
+  ```
+
+### Consejos para Monitoreo
+- Ejecuta `tail -f` en una terminal separada mientras Hydra corre en otra.
+- Usa `grep` para filtrar: `sudo tail -f /var/log/auth.log | grep "Failed password"`.
+- Si el servidor es remoto, conecta primero con SSH seguro antes de iniciar el ataque.
+- Recuerda que estos logs pueden crecer rápidamente; usa `sudo truncate -s 0 /var/log/auth.log` para limpiar después (con precaución).
+
+---
+
+## �📚 Recursos Adicionales
 
 - [Documentación oficial de Hydra](https://github.com/vanhauser-thc/thc-hydra)
 - [OWASP Testing for Brute Force](https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/04-Testing_for_Brute_Force.html)
