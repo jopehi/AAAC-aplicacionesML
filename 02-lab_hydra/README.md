@@ -382,3 +382,69 @@ sudo tail -f /var/log/syslog
 ---
 
 
+## Tecnicas Y Metodos Que Se Observan En Este Laboratorio
+
+Esta seccion resume el enfoque tecnico que se estudia en el laboratorio, como complemento al flujo practico.
+
+### Fuerza Bruta De Credenciales
+
+Consiste en probar multiples combinaciones de usuario y contrasena hasta encontrar una coincidencia valida o agotar el diccionario disponible.
+
+En el laboratorio se observa:
+
+- repeticion de intentos fallidos
+- alto volumen de autenticaciones en poco tiempo
+- combinaciones sistematicas de usuarios y contrasenas
+
+### Password Guessing
+
+Se basa en probar contrasenas comunes o debiles sobre uno o varios usuarios probables.
+
+Esto permite estudiar:
+
+- credenciales predecibles
+- patrones repetitivos en logs
+- diferencias entre cuentas privilegiadas y cuentas comunes
+
+### Generacion De Ruido Controlado
+
+El laboratorio sirve para producir actividad observable y luego analizarla desde el punto de vista defensivo.
+
+Esto ayuda a:
+
+- capturar evidencia en logs
+- medir frecuencia, volumen y repeticion
+- alimentar ejercicios de correlacion y deteccion
+
+### Observacion De Logs
+
+Una parte central del ejercicio es aprender a leer la evidencia que dejan los intentos de autenticacion.
+
+Se revisan elementos como:
+
+- usuario objetivo
+- IP origen
+- horario del intento
+- cantidad de fallos
+- patron temporal de repeticion
+
+### Correlacion Temporal
+
+Los eventos aislados suelen tener poco valor por si solos. El analisis mejora cuando se observan en ventanas de tiempo.
+
+Por eso este laboratorio sirve para identificar:
+
+- muchos intentos en pocos minutos
+- multiples usuarios desde una misma IP
+- secuencias repetitivas de autenticacion fallida
+
+### Indicadores Basicos De Abuso De Autenticacion
+
+Entre los indicadores que se pueden estudiar estan:
+
+- numero de intentos fallidos por minuto
+- usuarios distintos probados desde un mismo origen
+- horario atipico de actividad
+- repeticiones sobre cuentas privilegiadas como `root`
+
+Estos conceptos son utiles como base para ejercicios posteriores de deteccion, analitica y machine learning aplicado a ciberseguridad.
