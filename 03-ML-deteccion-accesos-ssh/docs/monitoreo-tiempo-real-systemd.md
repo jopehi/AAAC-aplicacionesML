@@ -379,6 +379,92 @@ journalctl -u ssh-ml-monitor.service -n 20 --no-pager
 
 Si esos pasos salen bien, el sistema ya esta ejecutandose.
 
+## Comandos Fundamentales Cuando Estés Haciendo Ajustes
+
+Esta seccion es clave cuando:
+
+- cambias codigo en `app/`, `src/` o `scripts/`
+- sobreescribes archivos del proyecto
+- reinicias el servicio
+- quieres confirmar si el monitor sigue trayendo informacion y guardando alertas
+
+### Ver si el monitor esta vivo
+
+```bash
+sudo systemctl status ssh-ml-monitor.service
+systemctl is-active ssh-ml-monitor.service
+```
+
+### Ver errores o mensajes recientes del servicio
+
+```bash
+journalctl -u ssh-ml-monitor.service -n 50 --no-pager
+```
+
+Para seguirlo en vivo:
+
+```bash
+journalctl -u ssh-ml-monitor.service -f
+```
+
+### Ver si la base SQLite existe y se actualiza
+
+```bash
+ls -lh /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db
+stat /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db
+```
+
+### Ver si realmente se estan guardando eventos
+
+```bash
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT COUNT(*) FROM ssh_events;"
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT timestamp, source_ip, username, ssh_event_type, auth_result FROM ssh_events ORDER BY id DESC LIMIT 10;"
+```
+
+### Ver si realmente se estan guardando alertas
+
+```bash
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT COUNT(*) FROM ssh_alerts;"
+sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT created_at, source_ip, username, prediction_label, reason_summary FROM ssh_alerts ORDER BY id DESC LIMIT 10;"
+```
+
+### Ver crecimiento en tiempo real
+
+```bash
+watch -n 2 'sqlite3 /03-ML-deteccion-accesos-ssh/data/processed/ssh_monitor.db "SELECT COUNT(*) AS events FROM ssh_events; SELECT COUNT(*) AS alerts FROM ssh_alerts;"'
+```
+
+### Reiniciar despues de cambios
+
+Si editaste scripts o servicios:
+
+```bash
+sudo systemctl restart ssh-ml-monitor.service
+sudo systemctl status ssh-ml-monitor.service
+```
+
+Si tambien cambiaste las unidades de `systemd`:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart ssh-ml-monitor.service
+```
+
+### Confirmar si la app esta leyendo SQLite o el baseline
+
+Cuando abras la interfaz:
+
+- si existe `data/processed/ssh_monitor.db` y tiene datos, la app entra al modo avanzado
+- si no existe o esta vacia, la app vuelve al baseline con `models/scored_events.csv`
+
+En la practica, si en la pantalla ves:
+
+- `Alertas recientes`
+- `Eventos recientes`
+- `IPs con mayor prioridad operativa`
+
+entonces estas viendo la capa avanzada desde SQLite
+
 ## Contexto
 
 En Ubuntu 24, `systemd` y `journald` son piezas centrales del sistema. Aunque `auth.log` puede seguir existiendo, una estrategia moderna de observabilidad debe contemplar:
