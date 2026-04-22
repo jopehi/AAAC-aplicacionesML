@@ -145,7 +145,18 @@ def render_header(mode: str, thresholds: dict) -> None:
 
 
 def parse_rule_hits(value: str) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value]
+    if isinstance(value, float) and pd.isna(value):
+        return []
     if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, list) else []
+    except (json.JSONDecodeError, TypeError):
         return []
 
 
@@ -154,11 +165,6 @@ def load_json_file(path: Path) -> dict:
         return {}
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
-    try:
-        parsed = json.loads(value)
-        return parsed if isinstance(parsed, list) else []
-    except json.JSONDecodeError:
-        return []
 
 
 def classify_block_status(rule_hits: list[str], prediction_label: str) -> str:
@@ -189,7 +195,7 @@ def prepare_alerts(alerts: pd.DataFrame) -> pd.DataFrame:
 
     prepared = alerts.copy()
     prepared["rule_hits_list"] = prepared["rule_hits"].apply(parse_rule_hits)
-    prepared["rule_count"] = prepared["rule_hits_list"].apply(len)
+    prepared["rule_count"] = prepared["rule_hits_list"].apply(lambda values: len(values) if isinstance(values, list) else 0)
     prepared["block_status"] = prepared.apply(
         lambda row: classify_block_status(row["rule_hits_list"], row["prediction_label"]),
         axis=1,
@@ -222,7 +228,7 @@ def prepare_baseline(frame: pd.DataFrame, thresholds: dict) -> pd.DataFrame:
         ],
         axis=1,
     )
-    prepared["rule_count"] = prepared["rule_hits_list"].apply(len)
+    prepared["rule_count"] = prepared["rule_hits_list"].apply(lambda values: len(values) if isinstance(values, list) else 0)
     prepared["block_status"] = prepared.apply(
         lambda row: classify_block_status(row["rule_hits_list"], row["prediction_label"]),
         axis=1,
