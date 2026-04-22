@@ -1,6 +1,6 @@
 project:
   name: ssh-anomaly-detection
-  timezone: UTC
+  timezone: America/Bogota
 
 features:
   windows_minutes:
@@ -20,7 +20,7 @@ realtime:
   risk_score_threshold: 0.1
 
 response:
-  enable_ufw_actions: false
+  enable_ufw_actions: true
   auto_block_enabled: false
   ufw_port: 22
   sudo_command: sudo
