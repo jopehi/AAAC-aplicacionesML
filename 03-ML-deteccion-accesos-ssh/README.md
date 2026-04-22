@@ -227,6 +227,39 @@ python scripts/parse_ssh_logs.py \
   --output data/processed/ssh_events.csv
 ```
 
+Que estamos haciendo en este paso:
+
+- leemos el log crudo del sistema
+- identificamos solo las lineas relevantes para autenticacion SSH
+- extraemos campos utiles como fecha, host, IP origen, usuario, puerto y tipo de evento
+- convertimos el texto libre del log en un dataset estructurado
+
+Tecnica utilizada:
+
+- parsing basado en expresiones regulares
+
+Que detecta actualmente el parser:
+
+- `Accepted password`
+- `Failed password`
+- `Invalid user`
+- apertura de sesion SSH por `pam_unix(sshd:session)`
+
+Por que este paso es importante:
+
+- los logs crudos son dificiles de usar directamente en machine learning
+- el modelo no trabaja con texto arbitrario, trabaja con columnas estructuradas
+- este paso convierte evidencia operativa en datos analizables
+
+Salida esperada:
+
+- `data/processed/ssh_events.csv`
+
+Contenido esperado del archivo:
+
+- una fila por evento SSH reconocido
+- columnas como `timestamp`, `source_ip`, `username`, `ssh_event_type`, `auth_result`, `raw_message`
+
 #### Paso 5: Ejecutar feature engineering
 
 ```bash
@@ -235,6 +268,56 @@ python scripts/build_features.py \
   --input data/processed/ssh_events.csv \
   --output data/processed/ssh_features.csv
 ```
+
+Que estamos haciendo en este paso:
+
+- tomamos los eventos ya estructurados del paso anterior
+- calculamos variables agregadas que describen comportamiento
+- transformamos eventos aislados en patrones medibles por ventana de tiempo
+
+Tecnicas utilizadas:
+
+- agregacion temporal
+- conteos por ventana deslizante
+- variables derivadas de frecuencia
+- analisis basico de comportamiento por IP y por usuario
+
+Ejemplos de features que se generan:
+
+- `failed_count_1m`
+- `failed_count_5m`
+- `failed_count_15m`
+- `success_count_1m`
+- `success_count_5m`
+- `user_events_5m`
+- `user_count_per_ip_5m`
+- `ip_count_per_user_5m`
+- `failure_success_ratio`
+- `hour_of_day`
+- `day_of_week`
+- `is_weekend`
+
+Como interpretar estas variables:
+
+- si una IP genera muchos fallos en pocos minutos, su comportamiento puede ser anomalo
+- si una misma IP prueba muchos usuarios distintos, eso puede parecer password spraying
+- si un usuario recibe accesos fuera de su horario habitual, eso puede elevar riesgo
+- si la relacion fallo/exito es muy alta, puede indicar actividad sospechosa
+
+Por que este paso es importante:
+
+- el modelo no aprende bien solo con el texto del log
+- aprende mejor con patrones numericos y temporales
+- aqui se concentra gran parte del valor analitico del sistema
+
+Salida esperada:
+
+- `data/processed/ssh_features.csv`
+
+Contenido esperado del archivo:
+
+- las columnas originales mas un conjunto de variables numericas listas para entrenamiento
+- una columna `label` inicial de apoyo, util para experimentos de laboratorio
 
 #### Paso 6: Entrenar modelo baseline
 
@@ -245,6 +328,60 @@ python scripts/train_baseline.py \
   --model-output models/ssh_anomaly_model.joblib \
   --metadata-output models/model_metadata.json
 ```
+
+Que estamos haciendo en este paso:
+
+- cargamos el dataset de features
+- seleccionamos las variables numericas relevantes
+- entrenamos un modelo baseline de deteccion de anomalias
+- calculamos un score de riesgo para cada evento
+- guardamos el modelo y su metadata para reutilizarlo despues
+
+Algoritmo utilizado actualmente:
+
+- `Isolation Forest`
+
+Por que se eligio este modelo:
+
+- funciona bien como baseline cuando no hay muchas etiquetas confiables
+- es rapido de entrenar
+- es apropiado para encontrar observaciones raras en datasets operativos
+- sirve bien para laboratorios donde hay mezcla de actividad normal y ruido controlado
+
+Idea intuitiva de `Isolation Forest`:
+
+- el modelo intenta aislar observaciones
+- los eventos normales suelen requerir mas particiones para aislarse
+- los eventos raros o extraños suelen aislarse mas rapido
+- mientras mas facil es aislar un evento, mas sospechoso puede resultar
+
+Que columnas usa el modelo:
+
+- hora del evento
+- dia de semana
+- conteos de fallos y exitos
+- cantidad de usuarios por IP
+- cantidad de IPs por usuario
+- ratio entre fallos y exitos
+
+Que genera este paso:
+
+- `models/ssh_anomaly_model.joblib`
+- `models/model_metadata.json`
+- `models/scored_events.csv`
+
+Que significa cada salida:
+
+- `ssh_anomaly_model.joblib`: el modelo serializado para volver a cargarlo
+- `model_metadata.json`: configuracion, features usadas y resumen del entrenamiento
+- `scored_events.csv`: dataset con score de riesgo y etiqueta predicha
+
+Como interpretar el resultado:
+
+- el modelo no afirma "ataque confirmado"
+- produce una estimacion de rareza o riesgo
+- los eventos `high_risk` deben verse como candidatos a revision
+- el analista o docente interpreta luego el contexto
 
 #### Paso 7: Levantar la app
 
