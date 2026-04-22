@@ -41,13 +41,25 @@ def inject_styles() -> None:
     st.markdown(
         """
         <style>
+        :root {
+            --shell-bg: linear-gradient(135deg, #08111f 0%, #10233d 55%, #17314e 100%);
+            --shell-border: rgba(135, 180, 255, 0.18);
+            --shell-text: #f5f8ff;
+            --shell-copy: #d7e5ff;
+            --soft-card-bg: linear-gradient(180deg, rgba(17, 29, 46, 0.96) 0%, rgba(10, 20, 34, 0.98) 100%);
+            --soft-card-border: rgba(140, 180, 230, 0.14);
+            --soft-card-text: #e7eefb;
+            --muted-text: #a9bdd9;
+            --accent: #8ec5ff;
+            --danger-bg: linear-gradient(135deg, #4b0d14 0%, #7b1220 48%, #a61b2d 100%);
+        }
         .block-container {
             padding-top: 1.5rem;
             padding-bottom: 2rem;
         }
         .app-shell {
-            background: linear-gradient(135deg, #08111f 0%, #10233d 55%, #17314e 100%);
-            border: 1px solid rgba(135, 180, 255, 0.18);
+            background: var(--shell-bg);
+            border: 1px solid var(--shell-border);
             border-radius: 20px;
             padding: 1.25rem 1.25rem 0.85rem 1.25rem;
             margin-bottom: 1rem;
@@ -56,18 +68,18 @@ def inject_styles() -> None:
         .app-kicker {
             text-transform: uppercase;
             letter-spacing: 0.18em;
-            color: #8ec5ff;
+            color: var(--accent);
             font-size: 0.78rem;
             margin-bottom: 0.45rem;
         }
         .app-title {
             font-size: 2rem;
             font-weight: 700;
-            color: #f5f8ff;
+            color: var(--shell-text);
             margin-bottom: 0.35rem;
         }
         .app-copy {
-            color: #d7e5ff;
+            color: var(--shell-copy);
             font-size: 0.98rem;
             line-height: 1.5;
             max-width: 68rem;
@@ -89,14 +101,15 @@ def inject_styles() -> None:
         .panel-card {
             border-radius: 18px;
             padding: 1rem 1rem 0.85rem 1rem;
-            border: 1px solid rgba(19, 34, 55, 0.08);
-            background: linear-gradient(180deg, #ffffff 0%, #f3f7fb 100%);
+            border: 1px solid var(--soft-card-border);
+            background: var(--soft-card-bg);
+            color: var(--soft-card-text);
             margin-bottom: 1rem;
         }
         .risk-banner {
             border-radius: 18px;
             padding: 1rem 1rem 0.85rem 1rem;
-            background: linear-gradient(135deg, #4b0d14 0%, #7b1220 48%, #a61b2d 100%);
+            background: var(--danger-bg);
             color: white;
             margin-bottom: 1rem;
             border: 1px solid rgba(255,255,255,0.14);
@@ -112,9 +125,51 @@ def inject_styles() -> None:
         .info-card {
             border-radius: 18px;
             padding: 1rem 1rem 0.85rem 1rem;
-            background: linear-gradient(180deg, #f7fbff 0%, #edf4fb 100%);
-            border: 1px solid rgba(18, 45, 78, 0.10);
+            background: var(--soft-card-bg);
+            border: 1px solid var(--soft-card-border);
+            color: var(--soft-card-text);
             margin-bottom: 1rem;
+        }
+        .info-card strong {
+            color: #ffffff;
+        }
+        [data-testid="stExpander"] {
+            border: 1px solid var(--soft-card-border);
+            border-radius: 18px;
+            background: rgba(8, 17, 31, 0.48);
+            overflow: hidden;
+        }
+        [data-testid="stExpander"] details summary {
+            background: rgba(10, 20, 34, 0.92);
+            color: var(--shell-text);
+            border-bottom: 1px solid rgba(140, 180, 230, 0.12);
+        }
+        [data-testid="stExpander"] details > div {
+            background: rgba(9, 18, 31, 0.96);
+            color: var(--soft-card-text);
+        }
+        [data-testid="stDataFrame"] {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid rgba(140, 180, 230, 0.10);
+        }
+        [data-testid="stMetric"] {
+            background: rgba(12, 23, 39, 0.82);
+            border: 1px solid rgba(140, 180, 230, 0.12);
+            padding: 0.6rem 0.8rem;
+            border-radius: 16px;
+        }
+        [data-testid="stMetricLabel"], [data-testid="stMetricValue"] {
+            color: var(--shell-text);
+        }
+        .stMarkdown, .stText, p, li, label {
+            color: var(--soft-card-text);
+        }
+        code {
+            color: #d8ecff;
+            background: rgba(110, 180, 255, 0.10);
+            border-radius: 8px;
+            padding: 0.12rem 0.35rem;
         }
         </style>
         """,
