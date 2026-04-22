@@ -47,6 +47,16 @@ def load_thresholds() -> dict:
     }
 
 
+def load_project_timezone() -> str:
+    if not SETTINGS_PATH.exists():
+        return "UTC"
+
+    with SETTINGS_PATH.open("r", encoding="utf-8") as handle:
+        data = yaml.safe_load(handle) or {}
+    project_cfg = data.get("project", {})
+    return str(project_cfg.get("timezone", "UTC"))
+
+
 def load_response_config() -> dict:
     if not SETTINGS_PATH.exists():
         return {
@@ -207,7 +217,7 @@ def inject_styles() -> None:
     )
 
 
-def render_header(mode: str, thresholds: dict) -> None:
+def render_header(mode: str, thresholds: dict, timezone_name: str) -> None:
     st.markdown(
         f"""
         <div class="app-shell">
@@ -219,6 +229,7 @@ def render_header(mode: str, thresholds: dict) -> None:
             </div>
             <div class="badge-row">
                 <div class="badge">Modo: {mode}</div>
+                <div class="badge">Zona horaria: {timezone_name}</div>
                 <div class="badge">Umbral fallos 5m: {thresholds['high_failure_threshold_5m']}</div>
                 <div class="badge">Usuarios distintos/IP 5m: {thresholds['distinct_users_threshold_5m']}</div>
                 <div class="badge">Risk score: {thresholds['risk_score_threshold']}</div>
@@ -250,6 +261,15 @@ def load_json_file(path: Path) -> dict:
         return {}
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def to_display_timezone(series: pd.Series, timezone_name: str) -> pd.Series:
+    parsed = pd.to_datetime(series, errors="coerce", utc=True)
+    try:
+        converted = parsed.dt.tz_convert(timezone_name)
+    except Exception:
+        converted = parsed
+    return converted.dt.strftime("%Y-%m-%d %H:%M:%S %Z").fillna("")
 
 
 def ensure_response_actions_table(conn: sqlite3.Connection) -> None:
@@ -618,7 +638,7 @@ def filter_alerts(alerts: pd.DataFrame, selected_status: str, selected_ip: str, 
     return filtered
 
 
-def render_sqlite_mode(thresholds: dict, response_cfg: dict) -> None:
+def render_sqlite_mode(thresholds: dict, response_cfg: dict, timezone_name: str) -> None:
     conn = sqlite3.connect(SQLITE_PATH)
     alerts = pd.read_sql_query(
         """
@@ -648,8 +668,9 @@ def render_sqlite_mode(thresholds: dict, response_cfg: dict) -> None:
         st.stop()
 
     alerts = prepare_alerts(alerts)
+    alerts["created_at"] = to_display_timezone(alerts["created_at"], timezone_name)
     candidates = alerts[alerts["block_status"] == "candidate_block"] if not alerts.empty else pd.DataFrame()
-    render_header("Monitoreo continuo con SQLite", thresholds)
+    render_header("Monitoreo continuo con SQLite", thresholds, timezone_name)
     render_priority_banner(candidates)
 
     total_events = len(events)
@@ -657,6 +678,7 @@ def render_sqlite_mode(thresholds: dict, response_cfg: dict) -> None:
     successes = int((events["auth_result"] == "success").sum()) if not events.empty else 0
     render_metrics(total_events, failures, successes, len(alerts), len(candidates))
     render_model_context(thresholds, total_events)
+    events["timestamp"] = to_display_timezone(events["timestamp"], timezone_name)
 
     selected_status, selected_ip, selected_user = render_sidebar_filters(alerts)
     filtered_alerts = filter_alerts(alerts, selected_status, selected_ip, selected_user)
@@ -718,7 +740,7 @@ def render_sqlite_mode(thresholds: dict, response_cfg: dict) -> None:
     st.stop()
 
 
-def render_baseline_mode(thresholds: dict) -> None:
+def render_baseline_mode(thresholds: dict, timezone_name: str) -> None:
     if not SCORED_PATH.exists():
         st.warning("Todavia no existe models/scored_events.csv. Ejecuta primero el parser, features y entrenamiento.")
         st.stop()
@@ -729,9 +751,10 @@ def render_baseline_mode(thresholds: dict) -> None:
         st.stop()
 
     frame = prepare_baseline(frame, thresholds)
+    frame["timestamp"] = to_display_timezone(frame["timestamp"], timezone_name)
     candidates = frame[frame["block_status"] == "candidate_block"]
 
-    render_header("Baseline por lotes con CSV", thresholds)
+    render_header("Baseline por lotes con CSV", thresholds, timezone_name)
     render_priority_banner(candidates)
 
     total_events = len(frame)
@@ -816,8 +839,9 @@ st.set_page_config(page_title="SSH Anomaly Detection", layout="wide")
 inject_styles()
 thresholds = load_thresholds()
 response_cfg = load_response_config()
+timezone_name = load_project_timezone()
 
 if SQLITE_PATH.exists():
-    render_sqlite_mode(thresholds, response_cfg)
+    render_sqlite_mode(thresholds, response_cfg, timezone_name)
 else:
-    render_baseline_mode(thresholds)
+    render_baseline_mode(thresholds, timezone_name)
