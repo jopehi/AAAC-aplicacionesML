@@ -65,6 +65,17 @@ Esta seccion describe lo minimo necesario para poner en funcionamiento la soluci
 - conectividad de red entre el generador de ruido y el servidor monitoreado, si aplica
 - al menos 2 vCPU, 4 GB de RAM y 20 GB libres para laboratorio pequeno
 
+### Supuesto Operativo Del Laboratorio
+
+Para esta implementacion se asume lo siguiente:
+
+- la carpeta del proyecto se copiara en la raiz del servidor como `/03-ML-deteccion-accesos-ssh`
+- el usuario operativo sera `admon`
+- `admon` ya tiene privilegios de `sudo`
+- `admon` ya pertenece al grupo `adm`
+
+Por tanto, los comandos de esta guia se ejecutan pensando en ese contexto.
+
 ### Paquetes Del Sistema
 
 Instalar primero las dependencias base:
@@ -102,20 +113,7 @@ La solucion necesita leer eventos SSH. En Ubuntu 24 normalmente se usan:
 - `/var/log/auth.log`
 - `journalctl -u ssh`
 
-Opciones recomendadas:
-
-#### Opcion A: Ejecutar el parser con `sudo`
-
-Es la forma mas simple en laboratorio.
-
-#### Opcion B: Dar acceso controlado al grupo `adm`
-
-```bash
-sudo usermod -aG adm $USER
-newgrp adm
-```
-
-Luego validar:
+Como `admon` ya pertenece al grupo `adm`, deberia poder leer `auth.log` sin cambios extra de grupos. Validar con:
 
 ```bash
 groups
@@ -127,7 +125,7 @@ tail -n 20 /var/log/auth.log
 Desde la carpeta del proyecto:
 
 ```bash
-cd /ruta/al/proyecto/03-ML-deteccion-accesos-ssh
+cd /03-ML-deteccion-accesos-ssh
 
 python3 -m venv .venv
 source .venv/bin/activate
@@ -182,8 +180,10 @@ Para considerar que la solucion puede arrancar en Ubuntu 24, deberian existir al
 #### Paso 1: Copiar o clonar el repositorio
 
 ```bash
-git clone <repo-url>
-cd AAAC-aplicacionesML/03-ML-deteccion-accesos-ssh
+sudo cp -r /ruta/de/origen/03-ML-deteccion-accesos-ssh /03-ML-deteccion-accesos-ssh
+sudo chown -R admon:admon /03-ML-deteccion-accesos-ssh
+
+cd /03-ML-deteccion-accesos-ssh
 ```
 
 #### Paso 2: Crear entorno virtual e instalar dependencias
@@ -279,6 +279,8 @@ sudo ufw status
 
 Antes de considerar el despliegue listo, verificar:
 
+- `whoami` devuelve `admon`
+- `pwd` dentro del proyecto apunta a `/03-ML-deteccion-accesos-ssh`
 - `python3 --version`
 - `pip --version`
 - `systemctl status ssh`
