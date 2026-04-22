@@ -1,0 +1,4 @@
+interface:
+  display_name: "MySQL Fintech Lab"
+  short_description: "Manage schema and lab seed data"
+

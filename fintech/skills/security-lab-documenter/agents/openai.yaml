@@ -1,0 +1,4 @@
+interface:
+  display_name: "Security Lab Documenter"
+  short_description: "Document weak patterns and traces"
+
