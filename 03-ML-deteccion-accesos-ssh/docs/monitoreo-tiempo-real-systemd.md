@@ -51,6 +51,46 @@ Orden recomendado dentro de este documento:
 3. usar `Estado Actual De Implementacion`
 4. aplicar `Despliegue con systemd`
 
+## Secuencia Operativa De La Version Avanzada
+
+Si ya validaste el baseline y ahora quieres pasar a monitoreo continuo, sigue esta secuencia exacta:
+
+1. entrar al proyecto y activar `.venv`
+2. confirmar que el modelo baseline ya existe y esta alineado con el entorno
+3. ejecutar `run_realtime_monitor.py` en modo manual
+4. verificar que se crea `data/processed/ssh_monitor.db`
+5. abrir la app para comprobar que ahora lee desde SQLite
+6. probar reentrenamiento manual con `retrain_model.py`
+7. recien despues instalar y habilitar los servicios `systemd`
+
+Resumen de scripts de esta etapa:
+
+- `scripts/run_realtime_monitor.py` = monitoreo continuo, parseo incremental, scoring y persistencia en SQLite
+- `scripts/retrain_model.py` = reprocesa el log real y reentrena el baseline
+
+## Flujo Avanzado Paso A Paso
+
+La idea de esta etapa es:
+
+1. tomar eventos reales en continuo desde `auth.log` o `journald`
+2. convertirlos en eventos estructurados
+3. calcular features incrementales
+4. puntuar cada evento
+5. guardar eventos y alertas en SQLite
+6. leerlos desde la app
+
+### Vista General Del Flujo
+
+```text
+/var/log/auth.log o journalctl -u ssh -f
+  -> run_realtime_monitor.py
+  -> parser incremental
+  -> feature updater
+  -> modelo baseline + reglas
+  -> ssh_monitor.db
+  -> app/app.py
+```
+
 ## Antes De Ejecutar Comandos
 
 Salvo que el comando comience por `sudo` o sea una unidad de `systemd`, los ejemplos de este documento deben ejecutarse con `.venv` activo:
@@ -59,6 +99,109 @@ Salvo que el comando comience por `sudo` o sea una unidad de `systemd`, los ejem
 cd /03-ML-deteccion-accesos-ssh
 source .venv/bin/activate
 ```
+
+### Paso 1: Confirmar prerequisitos de la capa avanzada
+
+Antes de seguir, verifica que ya existe la base del proyecto:
+
+- `models/ssh_anomaly_model.joblib`
+- `models/model_metadata.json`
+- `models/scored_events.csv`
+
+Que estamos validando:
+
+- que el baseline ya fue construido
+- que la capa avanzada tendra un modelo para puntuar eventos en tiempo real
+
+### Paso 2: Ejecutar el monitor en modo manual sobre un archivo real
+
+Este es el primer comando que conviene probar en la version avanzada:
+
+```bash
+python scripts/run_realtime_monitor.py \
+  --input-file /var/log/auth.log \
+  --replay-existing \
+  --follow-file
+```
+
+Que hace este comando:
+
+- lee primero el contenido existente de `/var/log/auth.log`
+- procesa cada linea SSH reconocida
+- calcula features incrementales en memoria
+- aplica el modelo baseline y las reglas hibridas
+- guarda eventos en `ssh_events`
+- guarda alertas en `ssh_alerts`
+- sigue escuchando nuevas lineas del mismo archivo
+
+Resultado esperado:
+
+- se crea `data/processed/ssh_monitor.db`
+- aparecen datos en las tablas `ssh_events` y `ssh_alerts`
+
+### Paso 3: Alternativa con journald
+
+Si prefieres que la fuente principal sea `systemd`, usa:
+
+```bash
+python scripts/run_realtime_monitor.py \
+  --follow-journal
+```
+
+Que hace este comando:
+
+- se conecta a `journalctl -u ssh -f -o short-iso`
+- toma eventos nuevos de SSH a medida que aparecen
+- los procesa igual que en el modo archivo
+- guarda resultados en SQLite
+
+Cuando usarlo:
+
+- cuando quieres un modo mas alineado con Ubuntu 24 y `systemd`
+- cuando no quieres depender de leer directamente `/var/log/auth.log`
+
+### Paso 4: Verificar resultados en la app
+
+Una vez el monitor ya este escribiendo en SQLite, levanta la app:
+
+```bash
+streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
+```
+
+Que estamos haciendo:
+
+- comprobando que la app detecta `data/processed/ssh_monitor.db`
+- confirmando que la interfaz ya no lee solo `scored_events.csv`
+- revisando eventos y alertas recientes desde SQLite
+
+### Paso 5: Reentrenamiento manual
+
+Cuando quieras refrescar el modelo con el log real actual del servidor:
+
+```bash
+python scripts/retrain_model.py \
+  --input-log /var/log/auth.log
+```
+
+Que hace este comando:
+
+- vuelve a parsear el log real
+- vuelve a generar `ssh_events.csv`
+- vuelve a generar `ssh_features.csv`
+- reentrena `Isolation Forest`
+- actualiza `models/ssh_anomaly_model.joblib`
+- actualiza `models/model_metadata.json`
+- deja un resumen en `models/retrain_summary.json`
+
+Cuando usarlo:
+
+- despues de instalar dependencias por primera vez
+- cuando cambiaste de version de `scikit-learn`
+- cuando quieres refrescar el baseline con datos mas recientes
+
+### Paso 6: Pasar a systemd
+
+Solo cuando ya validaste manualmente los pasos anteriores, instala las unidades de `systemd`.
 
 ## Contexto
 
@@ -326,29 +469,6 @@ Capacidades actuales:
 - guardar alertas en `ssh_alerts`
 - aplicar reglas hibridas simples junto con el modelo baseline
 
-Ejemplo de uso con archivo real:
-
-```bash
-python scripts/run_realtime_monitor.py \
-  --input-file /var/log/auth.log \
-  --replay-existing \
-  --follow-file
-```
-
-Ejemplo de uso con `journald`:
-
-```bash
-python scripts/run_realtime_monitor.py \
-  --follow-journal
-```
-
-Ejemplo de reentrenamiento manual:
-
-```bash
-python scripts/retrain_model.py \
-  --input-log /var/log/auth.log
-```
-
 ### Despliegue con systemd
 
 Los archivos ya quedaron creados en `deploy/systemd/`:
@@ -368,6 +488,12 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now ssh-ml-monitor.service
 sudo systemctl enable --now ssh-ml-retrain.timer
 ```
+
+Que estamos haciendo:
+
+- instalando el monitor continuo como servicio persistente
+- habilitando un timer para reentrenamiento periodico
+- dejando la version avanzada operando al arranque del servidor
 
 Verificacion operativa:
 

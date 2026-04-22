@@ -49,6 +49,30 @@ Regla simple:
 - si todavia no tienes `models/scored_events.csv`, aun estas en la version inicial
 - si ya validaste el baseline y quieres monitoreo continuo, entonces pasas al documento avanzado
 
+## Secuencia Operativa Corta
+
+Si solo quieres saber en que orden ejecutar todo, sigue exactamente esta secuencia:
+
+1. preparar Ubuntu 24 y dependencias del sistema
+2. entrar al proyecto y activar `.venv`
+3. instalar dependencias Python
+4. tomar el log real en `data/raw/auth.log` o usar `sample_auth.log`
+5. ejecutar `parse_ssh_logs.py`
+6. ejecutar `build_features.py`
+7. ejecutar `train_baseline.py`
+8. levantar `app/app.py`
+9. validar el baseline con `validate_baseline.py`
+10. solo despues pasar a `run_realtime_monitor.py` o al despliegue con `systemd`
+
+En otras palabras:
+
+- `parse_ssh_logs.py` = convierte texto de log a eventos estructurados
+- `build_features.py` = convierte eventos en variables numericas
+- `train_baseline.py` = entrena el modelo y genera el score
+- `app/app.py` = muestra resultados
+- `validate_baseline.py` = comprueba que la version estable sigue sana
+- `run_realtime_monitor.py` = activa la capa avanzada de monitoreo continuo
+
 ## Objetivo
 
 Construir una aplicacion reproducible con machine learning para detectar intentos anormales de acceso por SSH, usando datos de autenticacion del sistema, variables derivadas de comportamiento y un flujo de entrenamiento e inferencia que cualquier persona pueda replicar en su propio laboratorio.
@@ -301,6 +325,27 @@ cd /03-ML-deteccion-accesos-ssh
 source .venv/bin/activate
 ```
 
+La idea de esta seccion es simple:
+
+1. obtener un log
+2. transformarlo a eventos
+3. transformar eventos a features
+4. entrenar el modelo
+5. ver resultados en la app
+
+### Vista General Del Flujo
+
+```text
+auth.log
+  -> parse_ssh_logs.py
+  -> ssh_events.csv
+  -> build_features.py
+  -> ssh_features.csv
+  -> train_baseline.py
+  -> ssh_anomaly_model.joblib + model_metadata.json + scored_events.csv
+  -> app/app.py
+```
+
 #### Paso 1: Entrar al proyecto
 
 ```bash
@@ -314,6 +359,17 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+Que estamos haciendo:
+
+- creando el entorno Python aislado del proyecto
+- activando ese entorno
+- instalando las librerias que usan los scripts y la app
+
+Resultado esperado:
+
+- `.venv` existe
+- `python`, `pip` y `streamlit` salen desde el entorno virtual
 
 #### Paso 3: Obtener datos crudos
 
@@ -333,6 +389,15 @@ o
 ```bash
 journalctl -u ssh --since "2026-04-20 00:00:00" > data/raw/journal_ssh.log
 ```
+
+Que estamos haciendo:
+
+- obteniendo la materia prima del proyecto: el log de autenticacion SSH
+
+Resultado esperado:
+
+- ya tienes un archivo de entrada para el parser
+- si usas el flujo real, ese archivo suele ser `data/raw/auth.log`
 
 #### Paso 4: Ejecutar parsing
 
@@ -377,6 +442,16 @@ Contenido esperado del archivo:
 
 - una fila por evento SSH reconocido
 - columnas como `timestamp`, `source_ip`, `username`, `ssh_event_type`, `auth_result`, `raw_message`
+
+En este paso el script que ejecutas es:
+
+- `scripts/parse_ssh_logs.py`
+
+Ese script hace exactamente esto:
+
+- lee el log
+- reconoce lineas SSH utiles
+- escribe `ssh_events.csv`
 
 #### Paso 5: Ejecutar feature engineering
 
@@ -436,6 +511,16 @@ Contenido esperado del archivo:
 
 - las columnas originales mas un conjunto de variables numericas listas para entrenamiento
 - una columna `label` inicial de apoyo, util para experimentos de laboratorio
+
+En este paso el script que ejecutas es:
+
+- `scripts/build_features.py`
+
+Ese script hace exactamente esto:
+
+- toma `ssh_events.csv`
+- calcula conteos, ratios y ventanas de tiempo
+- escribe `ssh_features.csv`
 
 #### Paso 6: Entrenar modelo baseline
 
@@ -501,6 +586,16 @@ Como interpretar el resultado:
 - los eventos `high_risk` deben verse como candidatos a revision
 - el analista o docente interpreta luego el contexto
 
+En este paso el script que ejecutas es:
+
+- `scripts/train_baseline.py`
+
+Ese script hace exactamente esto:
+
+- toma `ssh_features.csv`
+- entrena `Isolation Forest`
+- escribe el modelo y los artefactos de salida
+
 #### Paso 7: Levantar la app
 
 Si la interfaz se construye con Streamlit:
@@ -512,6 +607,15 @@ streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
 Luego abrir en navegador:
 
 - `http://IP_DEL_SERVIDOR:8501`
+
+Que estamos haciendo:
+
+- abriendo la interfaz para revisar el resultado del procesamiento
+
+Que archivo usa la app en este momento:
+
+- en version inicial: `models/scored_events.csv`
+- en version avanzada: `data/processed/ssh_monitor.db`, si existe
 
 ### Puertos Y Firewall
 
@@ -1007,6 +1111,12 @@ Este chequeo:
 - no sobreescribe `models/ssh_anomaly_model.joblib`
 - no altera `models/model_metadata.json`
 - deja un resumen en `models/baseline_validation_summary.json`
+
+Que hace este script:
+
+- vuelve a ejecutar el flujo base con archivos de validacion
+- comprueba que el baseline sigue funcionando
+- no pisa el modelo principal
 
 ## Paso Siguiente: Version Avanzada
 
