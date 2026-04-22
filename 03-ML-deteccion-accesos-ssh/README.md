@@ -8,7 +8,7 @@ Este proyecto esta pensado para uso educativo y defensivo en entornos de laborat
 
 Este proyecto tiene un documento ampliado para la evolucion operativa en Ubuntu 24:
 
-- [Monitoreo en tiempo real con systemd](docs/monitoreo-tiempo-real-systemd.md:1)
+- [Monitoreo en tiempo real con systemd](docs/monitoreo-tiempo-real-systemd.md)
 
 Ese documento explica:
 
