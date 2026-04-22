@@ -1,0 +1,11 @@
+timestamp,hostname,source_ip,source_port,username,ssh_event_type,auth_result,raw_message
+2026-04-22 10:00:01,ssh-lab,192.168.1.50,54421.0,admin,failed_password,failure,Apr 22 10:00:01 ssh-lab sshd[12001]: Failed password for invalid user admin from 192.168.1.50 port 54421 ssh2
+2026-04-22 10:00:11,ssh-lab,192.168.1.50,54422.0,oracle,failed_password,failure,Apr 22 10:00:11 ssh-lab sshd[12002]: Failed password for invalid user oracle from 192.168.1.50 port 54422 ssh2
+2026-04-22 10:00:19,ssh-lab,192.168.1.50,54424.0,root,failed_password,failure,Apr 22 10:00:19 ssh-lab sshd[12003]: Failed password for root from 192.168.1.50 port 54424 ssh2
+2026-04-22 10:00:24,ssh-lab,192.168.1.50,54425.0,test,failed_password,failure,Apr 22 10:00:24 ssh-lab sshd[12004]: Failed password for test from 192.168.1.50 port 54425 ssh2
+2026-04-22 10:00:31,ssh-lab,192.168.1.50,,backup,invalid_user,failure,Apr 22 10:00:31 ssh-lab sshd[12005]: Invalid user backup from 192.168.1.50
+2026-04-22 10:01:01,ssh-lab,192.168.1.20,53301.0,analyst,accepted_password,success,Apr 22 10:01:01 ssh-lab sshd[12006]: Accepted password for analyst from 192.168.1.20 port 53301 ssh2
+2026-04-22 10:03:10,ssh-lab,192.168.1.51,54501.0,support,failed_password,failure,Apr 22 10:03:10 ssh-lab sshd[12007]: Failed password for invalid user support from 192.168.1.51 port 54501 ssh2
+2026-04-22 10:03:15,ssh-lab,192.168.1.51,54502.0,support,failed_password,failure,Apr 22 10:03:15 ssh-lab sshd[12008]: Failed password for invalid user support from 192.168.1.51 port 54502 ssh2
+2026-04-22 10:04:21,ssh-lab,192.168.1.21,53390.0,devops,accepted_password,success,Apr 22 10:04:21 ssh-lab sshd[12009]: Accepted password for devops from 192.168.1.21 port 53390 ssh2
+2026-04-22 10:05:03,ssh-lab,192.168.1.52,54888.0,root,failed_password,failure,Apr 22 10:05:03 ssh-lab sshd[12010]: Failed password for root from 192.168.1.52 port 54888 ssh2

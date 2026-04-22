@@ -18,6 +18,22 @@ Ese documento explica:
 - como disenar respuestas preventivas graduales
 - que componentes futuros conviene implementar con `systemd`
 
+## Compatibilidad Entre Versiones
+
+La version inicial por lotes sigue siendo la referencia estable del proyecto y no depende de la version avanzada.
+
+Separacion actual:
+
+- la version inicial usa `scripts/parse_ssh_logs.py`, `scripts/build_features.py`, `scripts/train_baseline.py` y `app/app.py` en modo CSV
+- la version avanzada agrega `scripts/run_realtime_monitor.py`, SQLite y archivos `systemd`
+- si no existe `data/processed/ssh_monitor.db`, la app vuelve automaticamente al modo baseline con `models/scored_events.csv`
+
+Regla operativa recomendada:
+
+- primero validar siempre el baseline
+- despues activar la capa avanzada
+- no mezclar pruebas del monitor continuo con los artefactos principales si no hace falta
+
 ## Objetivo
 
 Construir una aplicacion reproducible con machine learning para detectar intentos anormales de acceso por SSH, usando datos de autenticacion del sistema, variables derivadas de comportamiento y un flujo de entrenamiento e inferencia que cualquier persona pueda replicar en su propio laboratorio.
@@ -182,6 +198,12 @@ En esta carpeta ya quedan incluidos:
 - `scripts/parse_ssh_logs.py`
 - `scripts/build_features.py`
 - `scripts/train_baseline.py`
+- `scripts/validate_baseline.py`
+- `scripts/run_realtime_monitor.py`
+- `scripts/retrain_model.py`
+- `deploy/systemd/ssh-ml-monitor.service`
+- `deploy/systemd/ssh-ml-retrain.service`
+- `deploy/systemd/ssh-ml-retrain.timer`
 - `app/app.py`
 - `data/raw/sample_auth.log` como archivo de prueba incluido en el proyecto
 
@@ -408,6 +430,41 @@ streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
 Luego abrir en navegador:
 
 - `http://IP_DEL_SERVIDOR:8501`
+
+#### Paso 8: Activar la version avanzada con systemd
+
+Archivos ya incluidos:
+
+- `deploy/systemd/ssh-ml-monitor.service`
+- `deploy/systemd/ssh-ml-retrain.service`
+- `deploy/systemd/ssh-ml-retrain.timer`
+
+Instalacion sugerida en Ubuntu 24:
+
+```bash
+sudo cp deploy/systemd/ssh-ml-monitor.service /etc/systemd/system/
+sudo cp deploy/systemd/ssh-ml-retrain.service /etc/systemd/system/
+sudo cp deploy/systemd/ssh-ml-retrain.timer /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ssh-ml-monitor.service
+sudo systemctl enable --now ssh-ml-retrain.timer
+```
+
+Validaciones utiles:
+
+```bash
+sudo systemctl status ssh-ml-monitor.service
+sudo systemctl status ssh-ml-retrain.timer
+journalctl -u ssh-ml-monitor.service -n 50 --no-pager
+journalctl -u ssh-ml-retrain.service -n 50 --no-pager
+```
+
+Que hace cada componente:
+
+- `ssh-ml-monitor.service`: sigue eventos nuevos desde `journald`, los parsea, calcula features incrementales y guarda eventos y alertas en `data/processed/ssh_monitor.db`
+- `ssh-ml-retrain.service`: reentrena el baseline a partir de `/var/log/auth.log`
+- `ssh-ml-retrain.timer`: ejecuta el reentrenamiento en la periodicidad definida
 
 ### Puertos Y Firewall
 
@@ -877,3 +934,57 @@ python scripts/train_baseline.py train \
 
 streamlit run app/app.py --server.address 0.0.0.0 --server.port 8501
 ```
+
+## Validacion Del Baseline
+
+Antes de probar cambios grandes o la capa avanzada, puedes validar que la version inicial siga funcionando sin tocar sus artefactos principales:
+
+```bash
+python scripts/validate_baseline.py
+```
+
+Este chequeo:
+
+- usa `data/raw/sample_auth.log`
+- genera archivos separados de validacion
+- no sobreescribe `models/ssh_anomaly_model.joblib`
+- no altera `models/model_metadata.json`
+- deja un resumen en `models/baseline_validation_summary.json`
+
+## Ejecucion Avanzada
+
+### Replay y seguimiento continuo
+
+Primero puedes reprocesar el log actual y luego seguir eventos nuevos sin copiar archivos:
+
+```bash
+python scripts/run_realtime_monitor.py \
+  --input-file /var/log/auth.log \
+  --replay-existing \
+  --follow-file
+```
+
+Si prefieres usar `systemd` como fuente principal:
+
+```bash
+python scripts/run_realtime_monitor.py \
+  --follow-journal
+```
+
+### Reentrenamiento manual
+
+Para refrescar el baseline con el log real del servidor:
+
+```bash
+python scripts/retrain_model.py \
+  --input-log /var/log/auth.log
+```
+
+Este comando:
+
+- parsea el log real
+- regenera `ssh_events.csv`
+- recalcula `ssh_features.csv`
+- entrena de nuevo `Isolation Forest`
+- actualiza `models/model_metadata.json`
+- deja un resumen en `models/retrain_summary.json`

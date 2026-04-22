@@ -1,0 +1,33 @@
+{
+  "input_log": "data\\raw\\sample_auth.log",
+  "events_output": "data\\processed\\ssh_events.csv",
+  "features_output": "data\\processed\\ssh_features.csv",
+  "model_output": "models\\ssh_anomaly_model.joblib",
+  "metadata_output": "models\\model_metadata.json",
+  "parsed_events": 10,
+  "feature_rows": 10,
+  "model_metadata": {
+    "model_type": "IsolationForest",
+    "feature_columns": [
+      "hour_of_day",
+      "day_of_week",
+      "is_weekend",
+      "failed_count_1m",
+      "failed_count_5m",
+      "failed_count_15m",
+      "success_count_1m",
+      "success_count_5m",
+      "success_count_15m",
+      "user_events_1m",
+      "user_events_5m",
+      "user_events_15m",
+      "user_count_per_ip_5m",
+      "ip_count_per_user_5m",
+      "failure_success_ratio"
+    ],
+    "contamination": 0.08,
+    "random_state": 42,
+    "training_rows": 10,
+    "high_risk_count": 1
+  }
+}

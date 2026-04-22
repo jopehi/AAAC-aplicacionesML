@@ -1,0 +1,17 @@
+[Unit]
+Description=Monitor continuo de accesos SSH con ML
+After=network-online.target ssh.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=admon
+Group=admon
+WorkingDirectory=/03-ML-deteccion-accesos-ssh
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/03-ML-deteccion-accesos-ssh/.venv/bin/python scripts/run_realtime_monitor.py --follow-journal
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

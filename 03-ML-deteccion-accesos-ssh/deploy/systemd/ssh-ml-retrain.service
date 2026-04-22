@@ -1,0 +1,12 @@
+[Unit]
+Description=Reentrenamiento periodico del baseline SSH ML
+After=network-online.target ssh.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=admon
+Group=admon
+WorkingDirectory=/03-ML-deteccion-accesos-ssh
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/03-ML-deteccion-accesos-ssh/.venv/bin/python scripts/retrain_model.py --input-log /var/log/auth.log

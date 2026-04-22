@@ -11,6 +11,24 @@ Describir una version ampliada del sistema para monitorear accesos SSH en tiempo
 
 Este documento complementa el `README.md` principal y sirve como hoja de ruta para una evolucion operativa del laboratorio.
 
+## Nota De Compatibilidad
+
+Esta version ampliada no reemplaza la version inicial del proyecto.
+
+La base estable sigue siendo el pipeline por lotes:
+
+- `scripts/parse_ssh_logs.py`
+- `scripts/build_features.py`
+- `scripts/train_baseline.py`
+
+La capa avanzada debe entenderse como un modulo adicional.
+
+Antes de activar monitoreo continuo o servicios `systemd`, conviene validar el baseline con:
+
+```bash
+python scripts/validate_baseline.py
+```
+
 ## Contexto
 
 En Ubuntu 24, `systemd` y `journald` son piezas centrales del sistema. Aunque `auth.log` puede seguir existiendo, una estrategia moderna de observabilidad debe contemplar:
@@ -256,6 +274,75 @@ Orden sugerido:
 5. agregar reglas hibridas de respuesta
 6. solo despues evaluar bloqueos automatizados
 
+## Estado Actual De Implementacion
+
+Ya se implemento una primera base funcional de esta version avanzada:
+
+- `scripts/run_realtime_monitor.py`
+- persistencia en SQLite en `data/processed/ssh_monitor.db`
+- lectura de alertas persistidas desde `app/app.py`
+
+Capacidades actuales:
+
+- reprocesar un archivo existente con `--replay-existing`
+- seguir un archivo en crecimiento con `--follow-file`
+- seguir eventos reales de `journalctl` con `--follow-journal`
+- guardar eventos SSH en `ssh_events`
+- guardar alertas en `ssh_alerts`
+- aplicar reglas hibridas simples junto con el modelo baseline
+
+Ejemplo de uso con archivo real:
+
+```bash
+python scripts/run_realtime_monitor.py \
+  --input-file /var/log/auth.log \
+  --replay-existing \
+  --follow-file
+```
+
+Ejemplo de uso con `journald`:
+
+```bash
+python scripts/run_realtime_monitor.py \
+  --follow-journal
+```
+
+Ejemplo de reentrenamiento manual:
+
+```bash
+python scripts/retrain_model.py \
+  --input-log /var/log/auth.log
+```
+
+### Despliegue con systemd
+
+Los archivos ya quedaron creados en `deploy/systemd/`:
+
+- `ssh-ml-monitor.service`
+- `ssh-ml-retrain.service`
+- `ssh-ml-retrain.timer`
+
+Instalacion sugerida:
+
+```bash
+sudo cp deploy/systemd/ssh-ml-monitor.service /etc/systemd/system/
+sudo cp deploy/systemd/ssh-ml-retrain.service /etc/systemd/system/
+sudo cp deploy/systemd/ssh-ml-retrain.timer /etc/systemd/system/
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ssh-ml-monitor.service
+sudo systemctl enable --now ssh-ml-retrain.timer
+```
+
+Verificacion operativa:
+
+```bash
+sudo systemctl status ssh-ml-monitor.service
+sudo systemctl status ssh-ml-retrain.timer
+journalctl -u ssh-ml-monitor.service -n 50 --no-pager
+journalctl -u ssh-ml-retrain.service -n 50 --no-pager
+```
+
 ## Riesgos Operativos
 
 - falsos positivos que bloqueen administradores legitimos
@@ -280,4 +367,3 @@ Orden sugerido:
 - servicio `systemd` para el monitor
 - timer `systemd` para reentrenamiento
 - integracion controlada con `fail2ban` o `ufw`
-

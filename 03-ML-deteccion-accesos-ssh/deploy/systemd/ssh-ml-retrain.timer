@@ -1,0 +1,10 @@
+[Unit]
+Description=Timer de reentrenamiento para SSH ML
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+Unit=ssh-ml-retrain.service
+
+[Install]
+WantedBy=timers.target

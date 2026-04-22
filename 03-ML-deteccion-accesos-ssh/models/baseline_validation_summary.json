@@ -1,0 +1,9 @@
+{
+  "status": "ok",
+  "input_log": "data\\raw\\sample_auth.log",
+  "parsed_events": 10,
+  "feature_rows": 10,
+  "model_type": "IsolationForest",
+  "high_risk_count": 1,
+  "note": "La validacion usa archivos separados para no alterar los artefactos principales del baseline."
+}

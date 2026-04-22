@@ -12,3 +12,9 @@ model:
   contamination: 0.08
   random_state: 42
 
+realtime:
+  sqlite_path: data/processed/ssh_monitor.db
+  high_failure_threshold_5m: 8
+  distinct_users_threshold_5m: 4
+  successful_after_failures_threshold_5m: 5
+  risk_score_threshold: 0.1
