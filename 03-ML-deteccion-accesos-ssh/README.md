@@ -122,6 +122,12 @@ tail -n 20 /var/log/auth.log
 
 ### Preparacion De Python
 
+Antes de crear el entorno virtual, asegúrate de que la carpeta ya pertenezca a `admon`:
+
+```bash
+sudo chown -R admon:admon /03-ML-deteccion-accesos-ssh
+```
+
 Desde la carpeta del proyecto:
 
 ```bash
