@@ -401,6 +401,8 @@ Si la app se expone en red local para laboratorio:
 
 ```bash
 sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 3306/tcp
 sudo ufw allow 8501/tcp
 sudo ufw enable
 sudo ufw status
