@@ -160,6 +160,7 @@ sudo apt install -y \
   git \
   curl \
   jq \
+  sqlite3 \
   rsyslog \
   openssh-server
 ```

@@ -100,6 +100,12 @@ cd /03-ML-deteccion-accesos-ssh
 source .venv/bin/activate
 ```
 
+Si vas a consultar la base SQLite desde consola, asegúrate de tener instalado `sqlite3` en Ubuntu 24:
+
+```bash
+sudo apt install -y sqlite3
+```
+
 ### Paso 1: Confirmar prerequisitos de la capa avanzada
 
 Antes de seguir, verifica que ya existe la base del proyecto:
