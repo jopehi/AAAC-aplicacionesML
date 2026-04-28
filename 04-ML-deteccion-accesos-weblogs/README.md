@@ -84,6 +84,24 @@ La columna `classification` se convierte a:
 
 ## Preparacion En Ubuntu 24
 
+Si la carpeta se copia al servidor como `root` o desde otro usuario, primero ajustar el dueño y permisos del proyecto:
+
+```bash
+sudo chown -R admon:admon /04-ML-deteccion-accesos-weblogs
+sudo find /04-ML-deteccion-accesos-weblogs -type d -exec chmod 750 {} \;
+sudo find /04-ML-deteccion-accesos-weblogs -type f -exec chmod 640 {} \;
+sudo chmod -R u+rwX /04-ML-deteccion-accesos-weblogs
+```
+
+Si el usuario `admon` debe leer logs directamente desde `/var/log/apache2`, validar que tenga acceso al grupo correspondiente:
+
+```bash
+groups admon
+sudo usermod -aG adm admon
+```
+
+Despues de agregar el grupo, cerrar sesion y volver a entrar para que el cambio aplique.
+
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-pip python3-venv python3-dev build-essential
