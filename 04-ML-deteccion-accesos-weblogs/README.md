@@ -176,7 +176,7 @@ La salida incluye:
 ## Levantar Dashboard
 
 ```bash
-streamlit run app/app.py --server.address 0.0.0.0 --server.port 8503
+streamlit run app/app.py --server.address 0.0.0.0 --server.port 8503 --server.headless true
 ```
 
 Abrir:
@@ -228,7 +228,7 @@ python scripts/train_model.py train --input data/processed/csic_features.csv --m
 python scripts/parse_access_log.py parse-access --input data/raw/access.log --output data/processed/access_events.csv
 python scripts/parse_error_log.py parse-error --input data/raw/error.log --output data/processed/error_events.csv
 python scripts/score_access_log.py score-access --input data/processed/access_events.csv --model models/web_attack_model.joblib --output data/processed/access_scored.csv
-streamlit run app/app.py --server.address 0.0.0.0 --server.port 8503
+streamlit run app/app.py --server.address 0.0.0.0 --server.port 8503 --server.headless true
 ```
 
 ## Nota De Seguridad

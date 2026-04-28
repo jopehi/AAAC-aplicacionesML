@@ -29,9 +29,17 @@ def load_metadata() -> dict:
 
 def render_metrics(frame: pd.DataFrame) -> None:
     total = len(frame)
-    high_risk = int((frame.get("prediction_label", "") == "high_risk").sum()) if total else 0
-    review = int((frame.get("prediction_label", "") == "review").sum()) if total else 0
-    mean_score = float(frame.get("risk_score", pd.Series(dtype=float)).mean()) if total else 0.0
+    label_col = "prediction_label" if "prediction_label" in frame.columns else "event_label"
+    score_col = "risk_score" if "risk_score" in frame.columns else "severity_score"
+
+    if total and label_col in frame.columns:
+        high_risk = int((frame[label_col] == "high_risk").sum())
+        review = int((frame[label_col] == "review").sum())
+    else:
+        high_risk = 0
+        review = 0
+
+    mean_score = float(frame[score_col].mean()) if total and score_col in frame.columns else 0.0
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Eventos", total)
@@ -104,7 +112,7 @@ def main() -> None:
         ]
         if col in filtered.columns
     ]
-    st.dataframe(filtered[columns].head(500), use_container_width=True, height=520)
+    st.dataframe(filtered[columns].head(500), width="stretch", height=520)
 
     if metadata.get("classification_report"):
         with st.expander("Metricas del entrenamiento"):
