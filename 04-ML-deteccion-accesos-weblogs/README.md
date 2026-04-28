@@ -341,6 +341,13 @@ La interfaz permite revisar tres fuentes:
 - `Error log Apache`: eventos parseados desde `error.log`
 - `Dataset CSIC puntuado`: resultados del dataset usado para entrenar y revisar el baseline
 
+La interfaz esta organizada en cuatro pestanas:
+
+- `Resumen`: metricas, graficos y rankings operativos
+- `Eventos`: tabla filtrable y exportacion CSV
+- `Detalle`: inspeccion de un evento individual
+- `Modelo`: metricas del entrenamiento supervisado
+
 ### Metricas Superiores
 
 En la parte superior se muestran:
@@ -351,6 +358,20 @@ En la parte superior se muestran:
 - `Score medio`: promedio del score de la fuente seleccionada
 
 El `Score medio` no significa ataque confirmado. Solo resume que tan riesgosa se ve la muestra cargada.
+
+### Filtros Laterales
+
+La barra lateral permite reducir la vista por:
+
+- etiqueta de riesgo
+- IP origen
+- metodo HTTP
+- status code
+- razon detectada
+- rango de fechas
+- busqueda textual en URL, mensaje, user-agent o request crudo
+
+Los filtros afectan las metricas, graficos, tabla, exportacion y detalle.
 
 ### Scores En Access Log
 
@@ -366,7 +387,7 @@ Interpretacion:
 
 - `ml_risk_score`: probabilidad estimada por el modelo entrenado con CSIC. Valores cercanos a `1.0` indican que el request se parece mas a trafico anomalo del dataset.
 - `heuristic_risk_score`: score basado en reglas explicables, por ejemplo SQLi, XSS, path traversal, rutas sensibles o user-agents automatizados.
-- `risk_score`: score final usado para ordenar y etiquetar. Actualmente toma el mayor valor entre `ml_risk_score` y `heuristic_risk_score`.
+- `risk_score`: score final usado para ordenar y etiquetar. Si hay evidencia por reglas, toma el mayor valor entre ML y reglas. Si solo hay score ML sin evidencia heuristica, el score se atenua para evitar que trafico normal fuera del dominio CSIC quede como alto riesgo automaticamente.
 - `prediction_label`: categoria final de riesgo.
 - `reasons`: explicacion corta de las reglas que se activaron.
 
@@ -391,6 +412,57 @@ scoring:
   high_risk_threshold: 0.70
   review_threshold: 0.35
 ```
+
+### Pestana Resumen
+
+Esta pestana ayuda a responder rapidamente:
+
+- cuantas alertas existen por etiqueta
+- que status codes predominan
+- que IPs tienen mayor score
+- que rutas aparecen con mayor riesgo
+- como evolucionan los eventos por hora
+
+`Top IPs sospechosas` prioriza por score maximo y cantidad de eventos. Una IP con muchos eventos normales no necesariamente es mas grave que una IP con pocos eventos pero score alto.
+
+`Top rutas` es util para identificar superficies atacadas o rutas sensibles consultadas, por ejemplo `/phpmyadmin`, `/.env`, `/admin`, endpoints de login o rutas con parametros sospechosos.
+
+### Pestana Eventos
+
+Esta pestana muestra la tabla principal. Recomendacion:
+
+- ordenar mentalmente por `risk_score`
+- revisar primero `high_risk`
+- usar `reasons` para entender la alerta
+- exportar la vista filtrada si se necesita evidencia para analisis posterior
+
+El boton `Descargar vista filtrada CSV` descarga exactamente lo que queda despues de aplicar filtros.
+
+### Pestana Detalle
+
+Esta pestana permite seleccionar un evento concreto dentro de los 200 eventos con mayor score de la vista filtrada.
+
+Muestra:
+
+- score final
+- score ML
+- score por reglas
+- URL o mensaje
+- user-agent
+- request crudo
+- razones activadas
+
+Usar esta vista para decidir si el evento es un falso positivo, una actividad esperada del laboratorio o una alerta que requiere accion.
+
+### Pestana Modelo
+
+Muestra las metricas guardadas en:
+
+```text
+models/model_metadata.json
+```
+
+Sirve para revisar desempeno del modelo entrenado con CSIC, pero no debe interpretarse como garantia de desempeno perfecto sobre los logs reales de Apache.
 
 ### Etiquetas De Riesgo
 

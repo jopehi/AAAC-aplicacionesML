@@ -36,7 +36,7 @@ SUSPICIOUS_PATTERNS = {
     "xss": re.compile(r"(?:<script|%3cscript|javascript:|onerror=|onload=)", re.I),
     "path_traversal": re.compile(r"(?:\.\./|%2e%2e%2f|/etc/passwd|boot\.ini)", re.I),
     "sensitive_file": re.compile(r"(?:\.env|wp-config\.php|\.git|/phpmyadmin|/wp-admin|/admin)", re.I),
-    "command_injection": re.compile(r"(?:;|\||%7c|`|\$\(|\bcat\s+|\bwget\s+|\bcurl\s+)", re.I),
+    "command_injection": re.compile(r"(?:\|\s*(?:cat|wget|curl|bash|sh|nc)\b|`|\$\(|\bcat\s+|\bwget\s+|\bcurl\s+|\bnc\s+-)", re.I),
 }
 
 
@@ -342,12 +342,21 @@ def score_apache_events(input_path: Path, model_path: Path, output_path: Path, c
         text = frame["request_text"].fillna("").astype(str)
         frame["ml_risk_score"] = model.predict_proba(text)[:, 1]
         frame["heuristic_risk_score"] = frame.apply(heuristic_score, axis=1)
-        frame["risk_score"] = frame[["ml_risk_score", "heuristic_risk_score"]].max(axis=1)
+        frame["risk_score"] = frame.apply(combined_access_risk_score, axis=1)
         frame["prediction_label"] = frame["risk_score"].map(lambda value: risk_label(value, settings))
         frame["reasons"] = frame.apply(explain_event, axis=1)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(output_path, index=False)
     return frame
+
+
+def combined_access_risk_score(row: pd.Series) -> float:
+    ml_score = float(row.get("ml_risk_score", 0.0) or 0.0)
+    heuristic = float(row.get("heuristic_risk_score", 0.0) or 0.0)
+
+    if heuristic >= 0.35:
+        return max(ml_score, heuristic)
+    return min(ml_score * 0.5, 0.49)
 
 
 def heuristic_score(row: pd.Series) -> float:
