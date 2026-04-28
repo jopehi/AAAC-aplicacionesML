@@ -25,7 +25,7 @@ Por eso, el contenido actual sirve como base de partida para evolucionar segun e
 
 ## Estructura General
 
-Actualmente el repositorio se organiza en tres carpetas principales.
+Actualmente el repositorio se organiza en cuatro carpetas principales.
 
 ### 1. `01-fintech`
 
@@ -86,6 +86,21 @@ Incluye:
 - documentacion operativa y tecnica
 
 Esta carpeta representa la linea mas cercana al componente de aprendizaje automatico aplicado a ciberseguridad dentro del repositorio.
+
+### 4. `04-ML-deteccion-accesos-weblogs`
+
+Contiene un proyecto de deteccion de accesos web sospechosos con machine learning.
+
+Su objetivo es mostrar un flujo reproducible para:
+
+- entrenar un baseline con `csic_database.csv`
+- parsear `access.log` de Apache
+- parsear `error.log` de Apache
+- calcular scores de riesgo para requests HTTP
+- combinar deteccion ML con reglas defensivas explicables
+- mostrar resultados en una interfaz Streamlit en el puerto `8503`
+
+Esta carpeta complementa a `03-ML-deteccion-accesos-ssh`: una se enfoca en SSH y la otra en trafico web de Apache.
 
 ## Forma De Uso Recomendada
 

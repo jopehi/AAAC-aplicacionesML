@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+streamlit.log
+streamlit.err.log
+data/raw/csic_database.csv
+data/raw/*.log
+data/processed/*.csv
+models/*.joblib
+models/*.json
+models/*.csv

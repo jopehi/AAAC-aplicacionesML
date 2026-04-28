@@ -1,0 +1,25 @@
+project:
+  timezone: America/Bogota
+  linux_path: /04-ML-deteccion-accesos-weblogs
+  streamlit_port: 8503
+
+dataset:
+  kaggle_slug: ispangler/csic-2010-web-application-attacks
+  csic_csv: data/raw/csic_database.csv
+
+apache:
+  access_log: data/raw/access.log
+  error_log: data/raw/error.log
+
+model:
+  random_state: 42
+  test_size: 0.25
+  max_iter: 1000
+  class_weight: balanced
+
+scoring:
+  high_risk_threshold: 0.70
+  review_threshold: 0.35
+
+features:
+  suspicious_status_codes: [400, 401, 403, 404, 405, 500]
