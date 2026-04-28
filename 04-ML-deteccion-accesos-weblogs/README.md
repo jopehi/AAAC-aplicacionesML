@@ -200,6 +200,8 @@ El proyecto incluye un servicio de referencia:
 deploy/systemd/weblog-ml-dashboard.service
 ```
 
+Si se instala y habilita este servicio, ya no es necesario iniciar el dashboard manualmente con `streamlit run` despues de cada reinicio. `systemd` se encarga de levantarlo automaticamente en el puerto `8503` cuando inicia el servidor y de reiniciarlo si el proceso falla.
+
 Instalacion sugerida en Ubuntu 24:
 
 ```bash
@@ -208,6 +210,20 @@ sudo systemctl daemon-reload
 sudo systemctl enable weblog-ml-dashboard
 sudo systemctl start weblog-ml-dashboard
 sudo systemctl status weblog-ml-dashboard
+```
+
+Despues de este paso, el acceso normal sera directamente:
+
+```text
+http://IP_DEL_SERVIDOR:8503
+```
+
+Comandos utiles:
+
+```bash
+sudo systemctl restart weblog-ml-dashboard
+sudo systemctl stop weblog-ml-dashboard
+sudo journalctl -u weblog-ml-dashboard -f
 ```
 
 El servicio asume:
