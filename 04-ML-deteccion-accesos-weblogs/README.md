@@ -333,6 +333,135 @@ sudo ufw allow 8503/tcp
 sudo ufw status
 ```
 
+## Como Interpretar La Interfaz
+
+La interfaz permite revisar tres fuentes:
+
+- `Access log Apache`: resultados del archivo `access.log` ya puntuados
+- `Error log Apache`: eventos parseados desde `error.log`
+- `Dataset CSIC puntuado`: resultados del dataset usado para entrenar y revisar el baseline
+
+### Metricas Superiores
+
+En la parte superior se muestran:
+
+- `Eventos`: cantidad de filas cargadas en la vista actual
+- `Alto riesgo`: cantidad de eventos con etiqueta `high_risk`
+- `Revision`: cantidad de eventos con etiqueta `review`
+- `Score medio`: promedio del score de la fuente seleccionada
+
+El `Score medio` no significa ataque confirmado. Solo resume que tan riesgosa se ve la muestra cargada.
+
+### Scores En Access Log
+
+Para `Access log Apache`, la tabla puede mostrar estos campos:
+
+- `ml_risk_score`
+- `heuristic_risk_score`
+- `risk_score`
+- `prediction_label`
+- `reasons`
+
+Interpretacion:
+
+- `ml_risk_score`: probabilidad estimada por el modelo entrenado con CSIC. Valores cercanos a `1.0` indican que el request se parece mas a trafico anomalo del dataset.
+- `heuristic_risk_score`: score basado en reglas explicables, por ejemplo SQLi, XSS, path traversal, rutas sensibles o user-agents automatizados.
+- `risk_score`: score final usado para ordenar y etiquetar. Actualmente toma el mayor valor entre `ml_risk_score` y `heuristic_risk_score`.
+- `prediction_label`: categoria final de riesgo.
+- `reasons`: explicacion corta de las reglas que se activaron.
+
+Umbrales actuales:
+
+```text
+0.00 - 0.34  => normal
+0.35 - 0.69  => review
+0.70 - 1.00  => high_risk
+```
+
+Estos umbrales se configuran en:
+
+```text
+config/settings.yaml
+```
+
+Ejemplo:
+
+```yaml
+scoring:
+  high_risk_threshold: 0.70
+  review_threshold: 0.35
+```
+
+### Etiquetas De Riesgo
+
+`normal`:
+
+- el evento no tiene senales fuertes de ataque
+- no requiere accion inmediata
+- aun asi puede aparecer si el trafico real cambia o si el modelo no reconoce una tecnica nueva
+
+`review`:
+
+- el evento tiene senales que justifican revision manual
+- puede ser un falso positivo, por ejemplo un `404` normal o una ruta inexistente solicitada por un navegador
+- conviene revisar IP, URL, user-agent, status code y frecuencia
+
+`high_risk`:
+
+- el evento tiene senales fuertes de actividad sospechosa
+- puede indicar SQL injection, XSS, path traversal, busqueda de archivos sensibles o herramientas automatizadas
+- debe revisarse con prioridad antes de tomar acciones como bloqueo
+
+### Campo `reasons`
+
+El campo `reasons` ayuda a explicar por que un evento fue marcado.
+
+Ejemplos:
+
+- `patron SQLi`: posible SQL injection
+- `patron XSS`: posible intento de cross-site scripting
+- `path traversal`: intento de acceder a rutas fuera del directorio esperado
+- `ruta sensible`: acceso a rutas como `.env`, `.git`, `/admin`, `/phpmyadmin` o similares
+- `command injection`: posible intento de inyectar comandos
+- `user-agent automatizado`: herramientas como `curl`, `wget`, `sqlmap`, `nikto`, `nmap` o bots
+- `respuesta HTTP de error`: status `4xx` o `5xx`
+
+### Scores En Error Log
+
+Para `Error log Apache`, el sistema no usa el modelo CSIC. En su lugar usa severidad del log:
+
+- `severity_score`
+- `event_label`
+- `level`
+- `module`
+- `message`
+
+Interpretacion de severidad:
+
+```text
+notice/info/debug  => normal
+warn/warning       => review
+error/err          => high_risk
+crit/alert/emerg   => high_risk
+unparsed           => review
+```
+
+El `error.log` debe interpretarse como contexto operativo. No todo `warning` o `error` es un ataque; puede ser configuracion, reinicios de Apache, permisos, rutas faltantes o errores de aplicacion.
+
+### Forma Recomendada De Analisis
+
+1. Revisar primero `Access log Apache` filtrando `high_risk`.
+2. Ordenar mentalmente por `risk_score` mas alto.
+3. Leer `url`, `source_ip`, `user_agent`, `status_code` y `reasons`.
+4. Cambiar a `Error log Apache` para ver si hay errores cerca del mismo periodo.
+5. Confirmar contexto antes de bloquear IPs o tomar acciones.
+
+Regla practica:
+
+- `high_risk` no significa ataque confirmado
+- `review` significa revisar contexto
+- `normal` no significa garantia absoluta de seguridad
+
 ## Servicio Systemd Del Dashboard
 
 El proyecto incluye un servicio de referencia:
