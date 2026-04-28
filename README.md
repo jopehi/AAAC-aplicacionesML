@@ -1,127 +1,220 @@
 # AAAC-aplicacionesML
 
-Este repositorio esta orientado a apoyar el desarrollo del componente practico del curso `Aprendizaje automatico aplicado a ciberseguridad`.
+Repositorio de laboratorio para el curso `Aprendizaje automatico aplicado a ciberseguridad`.
 
-La idea general es contar con recursos de laboratorio que permitan:
+El objetivo es construir un entorno practico donde una aplicacion vulnerable o basica genera evidencia observable, y varios modulos de machine learning transforman esa evidencia en eventos, features, scores de riesgo e interfaces de analisis.
 
-- generar datos y ruido controlado
-- observar eventos de seguridad en entornos reales o semisimulados
-- construir prototipos de analitica y deteccion con machine learning
-- documentar procesos reproducibles para que otras personas puedan recrear los ejercicios
+## Objetivo General
 
-## Alcance
+Este repositorio permite trabajar el ciclo completo:
 
-Este repositorio debe entenderse como una idea inicial de trabajo, no como una solucion cerrada.
+1. desplegar una aplicacion de laboratorio
+2. generar actividad normal y sospechosa
+3. capturar logs reales del sistema
+4. estructurar los eventos
+5. entrenar modelos baseline
+6. visualizar alertas
+7. evolucionar hacia monitoreo continuo y respuesta operativa
 
-Cada laboratorio, cada institucion y cada necesidad tecnica puede requerir:
-
-- nuevos flujos de datos
-- cambios en infraestructura
-- otras tecnicas de deteccion
-- diferentes niveles de automatizacion
-- nuevas funcionalidades en interfaz, respuesta o monitoreo
-
-Por eso, el contenido actual sirve como base de partida para evolucionar segun el contexto del curso o del laboratorio.
+El enfoque es educativo, defensivo y reproducible. No esta pensado para atacar sistemas de terceros.
 
 ## Estructura General
 
-Actualmente el repositorio se organiza en cuatro carpetas principales.
+```text
+AAAC-aplicacionesML/
+|-- 01-fintech/
+|-- 02-lab_hydra/
+|-- 03-ML-deteccion-accesos-ssh/
+|-- 04-ML-deteccion-accesos-weblogs/
+`-- README.md
+```
 
-### 1. `01-fintech`
+## 1. `01-fintech`
 
-Contiene una aplicacion web de laboratorio construida con PHP y MySQL.
+Aplicacion web de laboratorio construida con PHP y MySQL.
 
-Su objetivo es servir como sistema de practica para:
+Sirve como sistema fuente para:
 
-- revisar conceptos de diseno y construccion de software
-- observar autenticacion, sesiones, productos, transacciones y logs
-- analizar superficies de riesgo y trazabilidad
-- generar datos utiles para ejercicios de deteccion y comportamiento de usuarios
+- practicar analisis de aplicaciones
+- observar autenticacion, sesiones, clientes, cuentas, productos y administracion
+- generar trazabilidad y eventos de uso
+- identificar superficies de riesgo
+- producir trafico web observable desde Apache
 
 Incluye:
 
-- portal publico de una fintech ficticia
-- acceso de clientes
+- portal publico
+- login de clientes
+- dashboard de clientes
 - panel administrativo
-- auditoria y visualizacion de logs
-- documentacion de hallazgos, matriz de riesgo y scoreboard
+- documentacion de arquitectura, riesgos y scoreboard
+- estructura SQL base
 
-Esta carpeta funciona como base para ejercicios de analisis de aplicaciones y generacion de eventos.
+Esta carpeta es la aplicacion que alimenta parte del laboratorio web.
 
-### 2. `02-lab_hydra`
+## 2. `02-lab_hydra`
 
-Contiene material de laboratorio para generar ruido controlado en un entorno autorizado.
+Material de laboratorio para generar ruido controlado en entornos autorizados.
 
-Su funcion principal es apoyar ejercicios de:
+Su funcion es apoyar ejercicios de:
 
-- observacion de intentos de autenticacion
-- recoleccion de evidencia en logs
-- analisis de patrones repetitivos
-- correlacion de actividad sospechosa
+- intentos de autenticacion
+- observacion de patrones repetitivos
+- recoleccion de evidencia
+- correlacion con logs de sistema
 
-Esta carpeta debe usarse solo en laboratorios controlados y autorizados, con enfoque educativo y defensivo.
+Debe usarse solo en laboratorios propios o autorizados.
 
-Su valor dentro del repositorio es servir como fuente de datos y actividad observable para otros componentes practicos del curso.
+## 3. `03-ML-deteccion-accesos-ssh`
 
-### 3. `03-ML-deteccion-accesos-ssh`
+Modulo de machine learning para deteccion de accesos SSH anomalos.
 
-Contiene un proyecto de deteccion de accesos SSH anómalos con machine learning.
+Fuentes principales:
 
-Su objetivo es mostrar un camino reproducible para:
+- `/var/log/auth.log`
+- `journalctl -u ssh`
 
-- parsear logs SSH
-- estructurar eventos
-- generar features
-- entrenar un baseline con `Isolation Forest`
-- mostrar resultados en una interfaz web
-- evolucionar a monitoreo continuo con `systemd`, SQLite y respuesta operativa
+Capacidades:
 
-Incluye:
-
-- pipeline baseline por lotes
-- validacion del baseline
-- monitor continuo
-- persistencia en SQLite
+- parseo de logs SSH
+- generacion de eventos estructurados
+- feature engineering por IP, usuario y ventanas temporales
+- baseline con `Isolation Forest`
+- scoring de eventos
 - interfaz Streamlit
-- documentacion operativa y tecnica
+- validacion del baseline
+- monitoreo continuo avanzado con SQLite y `systemd`
+- archivos de despliegue `systemd`
 
-Esta carpeta representa la linea mas cercana al componente de aprendizaje automatico aplicado a ciberseguridad dentro del repositorio.
+Puerto recomendado de interfaz:
 
-### 4. `04-ML-deteccion-accesos-weblogs`
+```text
+8502
+```
 
-Contiene un proyecto de deteccion de accesos web sospechosos con machine learning.
+Documentacion principal:
 
-Su objetivo es mostrar un flujo reproducible para:
+```text
+03-ML-deteccion-accesos-ssh/README.md
+03-ML-deteccion-accesos-ssh/docs/monitoreo-tiempo-real-systemd.md
+```
 
-- entrenar un baseline con `csic_database.csv`
-- parsear `access.log` de Apache
-- parsear `error.log` de Apache
-- calcular scores de riesgo para requests HTTP
-- combinar deteccion ML con reglas defensivas explicables
-- mostrar resultados en una interfaz Streamlit en el puerto `8503`
+## 4. `04-ML-deteccion-accesos-weblogs`
 
-Esta carpeta complementa a `03-ML-deteccion-accesos-ssh`: una se enfoca en SSH y la otra en trafico web de Apache.
+Modulo de machine learning para deteccion de accesos web sospechosos en Apache.
 
-## Forma De Uso Recomendada
+Fuentes principales:
 
-La recomendacion general es trabajar por capas:
+- `data/raw/csic_database.csv`
+- `/var/log/apache2/access.log`
+- `/var/log/apache2/error.log`
 
-1. entender el laboratorio o sistema fuente
-2. generar o capturar eventos observables
-3. estructurar datos
-4. construir una primera deteccion baseline
-5. iterar con nuevas reglas, modelos y automatizaciones
+Capacidades:
 
-## Nota Final
+- normalizacion del dataset CSIC 2010
+- entrenamiento supervisado con `LogisticRegression + TF-IDF`
+- parseo de `access.log`
+- parseo de `error.log`
+- scoring combinado con modelo ML y reglas explicables
+- filtros por IP, etiqueta, metodo, status code, razon y fecha
+- graficos de resumen
+- top IPs sospechosas
+- top rutas
+- detalle de evento
+- exportacion CSV
+- dashboard Streamlit
+- servicio `systemd` para el dashboard
+- timer `systemd` para refrescar logs actuales cada minuto
 
-El repositorio esta pensado para crecer.
+Puerto recomendado de interfaz:
 
-Lo que hoy aparece como una base funcional puede evolucionar hacia:
+```text
+8503
+```
 
-- mas fuentes de datos
-- nuevas tecnicas de ML
-- mejores interfaces
-- integracion con respuesta automatizada
-- ejercicios mas avanzados para clase
+Ruta esperada en Ubuntu 24:
 
-La idea no es cerrar el problema, sino ofrecer una plataforma inicial de trabajo practico sobre la cual seguir construyendo.
+```text
+/04-ML-deteccion-accesos-weblogs
+```
+
+Documentacion principal:
+
+```text
+04-ML-deteccion-accesos-weblogs/README.md
+```
+
+## Flujo Recomendado De Trabajo
+
+Para un laboratorio completo, el orden sugerido es:
+
+1. Revisar y desplegar `01-fintech`.
+2. Verificar que Apache genere `access.log` y `error.log`.
+3. Usar `02-lab_hydra` solo si se requiere ruido controlado autorizado.
+4. Ejecutar el baseline de `03-ML-deteccion-accesos-ssh` para eventos SSH.
+5. Ejecutar el baseline de `04-ML-deteccion-accesos-weblogs` para eventos web.
+6. Levantar dashboards en puertos separados:
+
+```text
+SSH ML:      http://IP_DEL_SERVIDOR:8502
+Weblogs ML: http://IP_DEL_SERVIDOR:8503
+```
+
+7. Activar servicios `systemd` cuando el baseline ya este validado.
+
+## Puertos
+
+```text
+01-fintech                     Apache / puerto 80
+03-ML-deteccion-accesos-ssh    Streamlit / puerto 8502
+04-ML-deteccion-accesos-weblogs Streamlit / puerto 8503
+```
+
+Si `ufw` esta activo, abrir solo los puertos necesarios para el laboratorio:
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 8502/tcp
+sudo ufw allow 8503/tcp
+sudo ufw status
+```
+
+## Datos Y Artefactos
+
+Los modulos ML generan archivos en:
+
+```text
+data/raw/
+data/processed/
+models/
+```
+
+Regla practica:
+
+- `data/raw/`: datos fuente, logs o datasets
+- `data/processed/`: CSV generados por parsers y feature engineering
+- `models/`: modelos entrenados, metadata y resultados puntuados
+
+Los archivos reales de logs y datasets pueden contener informacion sensible. Revisar antes de versionar, compartir o publicar.
+
+## Buenas Practicas
+
+- Ejecutar los modulos en entornos virtuales `.venv` separados.
+- No ejecutar dashboards como `root`.
+- Usar un usuario operativo como `admon`.
+- Validar permisos de lectura sobre logs antes de configurar `systemd`.
+- Entrenar primero el baseline antes de activar timers o servicios.
+- Revisar falsos positivos antes de automatizar acciones.
+- Documentar cambios de umbrales y modelos.
+
+## Alcance
+
+Este repositorio no es una solucion cerrada de SIEM, WAF o EDR. Es una plataforma de laboratorio para aprender a:
+
+- transformar logs en datos estructurados
+- construir modelos baseline
+- interpretar scores de riesgo
+- disenar interfaces de analisis
+- preparar automatizacion defensiva gradual
+
+El siguiente paso natural es enriquecer persistencia, correlacion entre fuentes, versionado de modelos y acciones preventivas controladas.
