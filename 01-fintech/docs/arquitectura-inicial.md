@@ -90,7 +90,7 @@ Configuracion dada:
 - host: `localhost`
 - puerto: `3306`
 - usuario: `root`
-- password: `idmatx`
+- password: `12345`
 
 Entidades base sugeridas:
 

@@ -4,7 +4,7 @@ $db_host = '127.0.0.1';
 $db_port = '3306';
 $db_name = 'fintech';
 $db_user = 'root';
-$db_pass = 'idmatx';
+$db_pass = '12345';
 
 $conn = mysqli_connect($db_host, $db_user, $db_pass, $db_name, (int) $db_port);
 

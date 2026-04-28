@@ -27,7 +27,7 @@ description: Create or update the MySQL schema, seed data, and logging structure
 - port: `3306`
 - database: `fintech`
 - user: `root`
-- password: `idmatx`
+- password: `12345`
 
 ## Deliverables
 
