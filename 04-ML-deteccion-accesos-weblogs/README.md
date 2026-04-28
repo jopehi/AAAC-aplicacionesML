@@ -18,42 +18,52 @@ Puerto de la interfaz:
 
 Se usa `8503` para no chocar con la aplicacion de `03-ML-deteccion-accesos-ssh`, que queda en `8502`.
 
+Logs reales de Apache:
+
+```text
+/var/log/apache2/access.log
+/var/log/apache2/error.log
+```
+
 ## Estructura Actual
 
 ```text
 04-ML-deteccion-accesos-weblogs/
-├── app/
-│   └── app.py
-├── config/
-│   └── settings.yaml
-├── data/
-│   ├── raw/
-│   │   ├── access.log
-│   │   ├── error.log
-│   │   └── csic_database.csv
-│   └── processed/
-│       ├── access_events.csv
-│       ├── access_scored.csv
-│       ├── csic_features.csv
-│       └── error_events.csv
-├── models/
-│   ├── model_metadata.json
-│   ├── scored_events.csv
-│   └── web_attack_model.joblib
-├── scripts/
-│   ├── normalize_csic.py
-│   ├── parse_access_log.py
-│   ├── parse_error_log.py
-│   ├── score_access_log.py
-│   └── train_model.py
-├── deploy/
-│   └── systemd/
-│       └── weblog-ml-dashboard.service
-├── src/
-│   ├── __init__.py
-│   └── web_log_pipeline.py
-├── requirements.txt
-└── README.md
+|-- app/
+|   `-- app.py
+|-- config/
+|   `-- settings.yaml
+|-- data/
+|   |-- raw/
+|   |   |-- access.log
+|   |   |-- error.log
+|   |   `-- csic_database.csv
+|   `-- processed/
+|       |-- access_events.csv
+|       |-- access_scored.csv
+|       |-- csic_features.csv
+|       `-- error_events.csv
+|-- deploy/
+|   `-- systemd/
+|       |-- weblog-ml-dashboard.service
+|       |-- weblog-ml-refresh.service
+|       `-- weblog-ml-refresh.timer
+|-- models/
+|   |-- model_metadata.json
+|   |-- scored_events.csv
+|   `-- web_attack_model.joblib
+|-- scripts/
+|   |-- normalize_csic.py
+|   |-- parse_access_log.py
+|   |-- parse_error_log.py
+|   |-- score_access_log.py
+|   |-- train_model.py
+|   `-- update_current_apache_logs.py
+|-- src/
+|   |-- __init__.py
+|   `-- web_log_pipeline.py
+|-- requirements.txt
+`-- README.md
 ```
 
 Los archivos en `data/raw/`, `data/processed/` y `models/` son artefactos locales. No deberian versionarse si contienen datos reales del laboratorio.
@@ -64,10 +74,15 @@ Entrenamiento:
 
 - `data/raw/csic_database.csv`
 
-Logs iniciales de Apache:
+Logs iniciales copiados al proyecto:
 
 - `data/raw/access.log`
 - `data/raw/error.log`
+
+Logs actuales del sistema en produccion/laboratorio:
+
+- `/var/log/apache2/access.log`
+- `/var/log/apache2/error.log`
 
 El dataset CSIC debe contener columnas como:
 
@@ -84,7 +99,7 @@ La columna `classification` se convierte a:
 
 ## Preparacion En Ubuntu 24
 
-Si la carpeta se copia al servidor como `root` o desde otro usuario, primero ajustar el dueño y permisos del proyecto:
+Si la carpeta se copia al servidor como `root` o desde otro usuario, primero ajustar el dueno y permisos del proyecto:
 
 ```bash
 sudo chown -R admon:admon /04-ML-deteccion-accesos-weblogs
@@ -102,6 +117,8 @@ sudo usermod -aG adm admon
 
 Despues de agregar el grupo, cerrar sesion y volver a entrar para que el cambio aplique.
 
+Instalar dependencias:
+
 ```bash
 sudo apt update
 sudo apt install -y python3 python3-pip python3-venv python3-dev build-essential
@@ -113,7 +130,7 @@ python -m pip install --upgrade pip wheel setuptools
 pip install -r requirements.txt
 ```
 
-## Flujo Baseline Completo
+## Flujo Baseline Inicial
 
 Ejecutar desde `/04-ML-deteccion-accesos-weblogs` con `.venv` activo.
 
@@ -140,25 +157,59 @@ El modelo baseline usa:
 - `LogisticRegression`
 - etiquetas supervisadas desde `classification`
 
-### 3. Parsear `access.log`
+## Capturar Trafico Actual De Apache
+
+Despues de entrenar el modelo una vez, el trafico actual se actualiza leyendo directamente:
+
+```text
+/var/log/apache2/access.log
+/var/log/apache2/error.log
+```
+
+Para refrescar manualmente los resultados:
+
+```bash
+python scripts/update_current_apache_logs.py
+```
+
+Antes de ejecutar este comando debe existir el modelo:
+
+```text
+models/web_attack_model.joblib
+```
+
+Ese comando ejecuta internamente:
+
+- parseo de `/var/log/apache2/access.log`
+- parseo de `/var/log/apache2/error.log`
+- scoring ML del access log
+- actualizacion de `data/processed/access_events.csv`
+- actualizacion de `data/processed/error_events.csv`
+- actualizacion de `data/processed/access_scored.csv`
+
+Esta version reprocesa el archivo actual completo en cada ejecucion. Es intencional para mantener el flujo simple y estable en laboratorio. Si los logs crecen demasiado, el siguiente paso seria cambiar a persistencia incremental con SQLite y seguimiento de offsets.
+
+Para probar con logs copiados en `data/raw/` en vez de los logs reales del sistema:
+
+```bash
+python scripts/update_current_apache_logs.py \
+  --access-log data/raw/access.log \
+  --error-log data/raw/error.log
+```
+
+## Comandos Manuales Separados
+
+Si se quiere ejecutar cada paso por separado:
 
 ```bash
 python scripts/parse_access_log.py parse-access \
-  --input data/raw/access.log \
+  --input /var/log/apache2/access.log \
   --output data/processed/access_events.csv
-```
 
-### 4. Parsear `error.log`
-
-```bash
 python scripts/parse_error_log.py parse-error \
-  --input data/raw/error.log \
+  --input /var/log/apache2/error.log \
   --output data/processed/error_events.csv
-```
 
-### 5. Puntuar Access Log
-
-```bash
 python scripts/score_access_log.py score-access \
   --input data/processed/access_events.csv \
   --model models/web_attack_model.joblib \
@@ -173,7 +224,7 @@ La salida incluye:
 - `prediction_label`: `normal`, `review`, `high_risk`
 - `reasons`
 
-## Levantar Dashboard
+## Levantar Dashboard Manualmente
 
 ```bash
 streamlit run app/app.py --server.address 0.0.0.0 --server.port 8503 --server.headless true
@@ -192,7 +243,7 @@ sudo ufw allow 8503/tcp
 sudo ufw status
 ```
 
-## Servicio Systemd Opcional
+## Servicio Systemd Del Dashboard
 
 El proyecto incluye un servicio de referencia:
 
@@ -226,14 +277,44 @@ sudo systemctl stop weblog-ml-dashboard
 sudo journalctl -u weblog-ml-dashboard -f
 ```
 
-El servicio asume:
+## Refresco Automatico De Logs Con Systemd Timer
 
-- ruta del proyecto: `/04-ML-deteccion-accesos-weblogs`
-- usuario operativo: `admon`
-- entorno virtual: `/04-ML-deteccion-accesos-weblogs/.venv`
-- puerto: `8503`
+El dashboard muestra lo que exista en `data/processed/`. Para que esos archivos se actualicen con el trafico actual de Apache sin ejecutar comandos manuales, instalar el timer:
 
-## Flujo Rapido
+```bash
+sudo cp deploy/systemd/weblog-ml-refresh.service /etc/systemd/system/
+sudo cp deploy/systemd/weblog-ml-refresh.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable weblog-ml-refresh.timer
+sudo systemctl start weblog-ml-refresh.timer
+sudo systemctl status weblog-ml-refresh.timer
+```
+
+El timer ejecuta cada minuto:
+
+```bash
+python scripts/update_current_apache_logs.py
+```
+
+Esto no reinicia el dashboard. Solo actualiza los CSV que el dashboard lee. En el navegador basta refrescar la pagina o cambiar de filtro/fuente para ver los datos nuevos.
+
+El servicio de refresco se ejecuta como `admon` y usa el grupo suplementario `adm` para leer `/var/log/apache2`. Si `admon` no pertenece a `adm`, corregirlo con:
+
+```bash
+sudo usermod -aG adm admon
+```
+
+Luego cerrar sesion y volver a entrar, o reiniciar el servicio si ya estaba instalado.
+
+Comandos utiles:
+
+```bash
+sudo systemctl start weblog-ml-refresh.service
+sudo systemctl list-timers | grep weblog-ml
+sudo journalctl -u weblog-ml-refresh.service -f
+```
+
+## Flujo Rapido Recomendado
 
 ```bash
 cd /04-ML-deteccion-accesos-weblogs
@@ -241,10 +322,14 @@ source .venv/bin/activate
 
 python scripts/normalize_csic.py normalize-csic --input data/raw/csic_database.csv --output data/processed/csic_features.csv
 python scripts/train_model.py train --input data/processed/csic_features.csv --model-output models/web_attack_model.joblib --metadata-output models/model_metadata.json
-python scripts/parse_access_log.py parse-access --input data/raw/access.log --output data/processed/access_events.csv
-python scripts/parse_error_log.py parse-error --input data/raw/error.log --output data/processed/error_events.csv
-python scripts/score_access_log.py score-access --input data/processed/access_events.csv --model models/web_attack_model.joblib --output data/processed/access_scored.csv
-streamlit run app/app.py --server.address 0.0.0.0 --server.port 8503 --server.headless true
+python scripts/update_current_apache_logs.py
+
+sudo cp deploy/systemd/weblog-ml-dashboard.service /etc/systemd/system/
+sudo cp deploy/systemd/weblog-ml-refresh.service /etc/systemd/system/
+sudo cp deploy/systemd/weblog-ml-refresh.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now weblog-ml-dashboard
+sudo systemctl enable --now weblog-ml-refresh.timer
 ```
 
 ## Nota De Seguridad

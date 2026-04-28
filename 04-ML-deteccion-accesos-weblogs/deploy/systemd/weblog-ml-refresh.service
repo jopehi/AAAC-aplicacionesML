@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Apache weblog ML detection outputs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=admon
+SupplementaryGroups=adm
+WorkingDirectory=/04-ML-deteccion-accesos-weblogs
+ExecStart=/04-ML-deteccion-accesos-weblogs/.venv/bin/python /04-ML-deteccion-accesos-weblogs/scripts/update_current_apache_logs.py

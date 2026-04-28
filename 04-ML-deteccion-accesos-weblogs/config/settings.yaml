@@ -8,8 +8,8 @@ dataset:
   csic_csv: data/raw/csic_database.csv
 
 apache:
-  access_log: data/raw/access.log
-  error_log: data/raw/error.log
+  access_log: /var/log/apache2/access.log
+  error_log: /var/log/apache2/error.log
 
 model:
   random_state: 42
