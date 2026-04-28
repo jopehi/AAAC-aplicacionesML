@@ -134,12 +134,49 @@ pip install -r requirements.txt
 
 Ejecutar desde `/04-ML-deteccion-accesos-weblogs` con `.venv` activo.
 
+Este flujo se ejecuta para dejar lista la primera version funcional del sistema. Su objetivo es convertir el dataset CSIC en datos entrenables, entrenar el modelo y generar los artefactos que luego se usan para puntuar los logs actuales de Apache.
+
 ### 1. Normalizar Dataset CSIC
 
 ```bash
 python scripts/normalize_csic.py normalize-csic \
   --input data/raw/csic_database.csv \
   --output data/processed/csic_features.csv
+```
+
+Que hace este paso:
+
+- lee `data/raw/csic_database.csv`
+- normaliza los nombres de columnas
+- toma campos como `Method`, `URL`, `content`, `User-Agent` y `classification`
+- construye una columna `request_text` con la informacion relevante de cada request
+- decodifica caracteres URL cuando aplica
+- crea variables defensivas como SQLi, XSS, path traversal, rutas sensibles y command injection
+- convierte `classification` en la etiqueta numerica `label`
+
+Entrada:
+
+```text
+data/raw/csic_database.csv
+```
+
+Salida:
+
+```text
+data/processed/csic_features.csv
+```
+
+Por que es necesario:
+
+- el CSV original viene como dataset HTTP crudo
+- el modelo no debe entrenarse directamente sobre columnas sin normalizar
+- este paso deja el dataset en una estructura estable para entrenamiento
+
+Validacion rapida:
+
+```bash
+ls -lh data/processed/csic_features.csv
+head -n 2 data/processed/csic_features.csv
 ```
 
 ### 2. Entrenar Modelo
@@ -156,6 +193,59 @@ El modelo baseline usa:
 - `TfidfVectorizer` por caracteres sobre requests HTTP
 - `LogisticRegression`
 - etiquetas supervisadas desde `classification`
+
+Que hace este paso:
+
+- carga `data/processed/csic_features.csv`
+- separa datos de entrenamiento y prueba
+- transforma `request_text` en features numericas con TF-IDF por caracteres
+- entrena una regresion logistica balanceada para clasificar requests normales vs sospechosos
+- evalua el modelo con metricas de clasificacion
+- guarda el modelo entrenado y la metadata del experimento
+
+Entrada:
+
+```text
+data/processed/csic_features.csv
+```
+
+Salidas:
+
+```text
+models/web_attack_model.joblib
+models/model_metadata.json
+models/scored_events.csv
+```
+
+Que significa cada salida:
+
+- `web_attack_model.joblib`: modelo entrenado que se reutiliza para puntuar `access.log`
+- `model_metadata.json`: metricas, version de scikit-learn, cantidad de filas y matriz de confusion
+- `scored_events.csv`: dataset CSIC con scores generados por el modelo, util para revisar comportamiento del baseline
+
+Por que es necesario:
+
+- sin este modelo no se puede ejecutar `score_access_log.py`
+- el refresco automatico tambien depende de `models/web_attack_model.joblib`
+
+Validacion rapida:
+
+```bash
+ls -lh models/web_attack_model.joblib models/model_metadata.json
+cat models/model_metadata.json
+```
+
+### 3. Verificar Artefactos Minimos
+
+Antes de pasar a logs reales, verificar que existan estos archivos:
+
+```bash
+test -f data/processed/csic_features.csv && echo "CSIC normalizado OK"
+test -f models/web_attack_model.joblib && echo "Modelo OK"
+test -f models/model_metadata.json && echo "Metadata OK"
+```
+
+Si alguno no existe, repetir los pasos anteriores antes de intentar capturar trafico actual de Apache.
 
 ## Capturar Trafico Actual De Apache
 
